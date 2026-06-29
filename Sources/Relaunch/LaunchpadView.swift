@@ -111,14 +111,16 @@ struct LaunchpadView: View {
     }
 
     private func gridPage(_ items: [LaunchItem]) -> some View {
-        VStack {
-            Spacer(minLength: 0)
+        VStack(spacing: 0) {
+            // Top-aligned: a partial last page keeps the same row positions as
+            // full pages instead of being vertically centered.
             LazyVGrid(columns: gridColumns, spacing: 26) {
                 ForEach(items) { itemCell($0) }
             }
+            .padding(.top, 24)
             Spacer(minLength: 0)
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .contentShape(Rectangle())
         .onTapGesture { onClose() }
     }
