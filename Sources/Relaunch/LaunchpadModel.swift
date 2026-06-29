@@ -33,12 +33,18 @@ final class LaunchpadModel: ObservableObject {
     @Published var query: String = ""
     @Published var openFolderID: String? = nil
     @Published var currentPage = 0
+    var lastPageDir = 1     // +1 = moved to a later page, -1 = earlier (slide direction)
 
     let pageSize = 35
     var pageCount: Int { Swift.max(1, (items.count + pageSize - 1) / pageSize) }
 
-    func changePage(_ delta: Int) {
-        currentPage = Swift.max(0, Swift.min(currentPage + delta, pageCount - 1))
+    func changePage(_ delta: Int) { setPage(currentPage + delta) }
+
+    func setPage(_ page: Int) {
+        let next = Swift.max(0, Swift.min(page, pageCount - 1))
+        guard next != currentPage else { return }
+        lastPageDir = next > currentPage ? 1 : -1
+        currentPage = next
     }
 
     private(set) var appsByPath: [String: AppInfo] = [:]

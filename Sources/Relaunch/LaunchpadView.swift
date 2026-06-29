@@ -126,10 +126,12 @@ struct LaunchpadView: View {
     private var pagedGrid: some View {
         GeometryReader { geo in
             ZStack(alignment: .topLeading) {
-                // Only the current page is rendered (no multi-page spill).
-                pageGridView(currentPageItems, size: geo.size)
+                // Current page only (no spill); pages slide horizontally in/out.
+                pageGridView(currentPageItems, pageIndex: model.currentPage, size: geo.size)
                     .id(model.currentPage)
-                    .transition(.opacity)
+                    .transition(.asymmetric(
+                        insertion: .move(edge: model.lastPageDir >= 0 ? .trailing : .leading),
+                        removal: .move(edge: model.lastPageDir >= 0 ? .leading : .trailing)))
 
                 // Floating dragged icon follows the cursor.
                 if let id = dragID, let item = model.items.first(where: { $0.id == id }) {
@@ -149,14 +151,13 @@ struct LaunchpadView: View {
         }
     }
 
-    private func pageGridView(_ pageItems: [LaunchItem], size: CGSize) -> some View {
+    private func pageGridView(_ pageItems: [LaunchItem], pageIndex: Int, size: CGSize) -> some View {
         let origin = gridOrigin(size)
         let cw = cellW(size)
-        // While dragging, the dragged icon floats (out of the flow) and the
-        // remaining icons reflow around a gap at `gapSlot`.
-        let dragging = dragID != nil
-        let display = dragging ? flowItems() : pageItems
-        let gap = dragging ? gapSlot : -1
+        // The dragged icon floats, so remove it from whichever page holds it;
+        // the gap marking its drop slot shows only on the page being viewed.
+        let display = dragID != nil ? pageItems.filter { $0.id != dragID } : pageItems
+        let gap = (dragID != nil && pageIndex == model.currentPage) ? gapSlot : -1
         return ZStack(alignment: .topLeading) {
             ForEach(Array(display.enumerated()), id: \.element.id) { idx, item in
                 let slot = (gap >= 0 && idx >= gap) ? idx + 1 : idx
@@ -336,7 +337,7 @@ struct LaunchpadView: View {
     private func flipDuringDrag(forward: Bool) {
         let next = model.currentPage + (forward ? 1 : -1)
         guard next >= 0, next < pages.count, dragID != nil else { return }
-        withAnimation(.easeInOut) { model.currentPage = next }
+        withAnimation(.easeInOut) { model.setPage(next) }
         // Reset the gap to the start of the new page; the icon stays floating.
         gapSlot = 0; lastHoverSlot = 0; hoverItemID = nil; folderTargetID = nil
     }
@@ -417,7 +418,7 @@ struct LaunchpadView: View {
                 Circle()
                     .fill(.white.opacity(i == model.currentPage ? 0.9 : 0.32))
                     .frame(width: 7, height: 7)
-                    .onTapGesture { withAnimation(.easeInOut) { model.currentPage = i } }
+                    .onTapGesture { withAnimation(.easeInOut) { model.setPage(i) } }
             }
         }
         .frame(height: 12)
