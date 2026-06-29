@@ -11,6 +11,7 @@ final class StatusBarController: NSObject, NSMenuDelegate {
     private let setGesture: (Bool) -> Void
     private let isHotkeyEnabled: () -> Bool
     private let setHotkey: (Bool) -> Void
+    private let importLegacy: () -> Int
 
     private let loginItem = NSMenuItem(title: "开机启动", action: #selector(toggleLogin), keyEquivalent: "")
     private let gestureItem = NSMenuItem(title: "捏合手势唤起", action: #selector(toggleGesture), keyEquivalent: "")
@@ -22,7 +23,8 @@ final class StatusBarController: NSObject, NSMenuDelegate {
          isGestureEnabled: @escaping () -> Bool,
          setGesture: @escaping (Bool) -> Void,
          isHotkeyEnabled: @escaping () -> Bool,
-         setHotkey: @escaping (Bool) -> Void) {
+         setHotkey: @escaping (Bool) -> Void,
+         importLegacy: @escaping () -> Int) {
         self.onOpen = onOpen
         self.isLoginEnabled = isLoginEnabled
         self.setLogin = setLogin
@@ -30,6 +32,7 @@ final class StatusBarController: NSObject, NSMenuDelegate {
         self.setGesture = setGesture
         self.isHotkeyEnabled = isHotkeyEnabled
         self.setHotkey = setHotkey
+        self.importLegacy = importLegacy
 
         item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         super.init()
@@ -60,6 +63,13 @@ final class StatusBarController: NSObject, NSMenuDelegate {
 
         menu.addItem(.separator())
 
+        let importItem = NSMenuItem(title: "导入旧版启动台分组",
+                                    action: #selector(doImport), keyEquivalent: "")
+        importItem.target = self
+        menu.addItem(importItem)
+
+        menu.addItem(.separator())
+
         let quit = NSMenuItem(title: "退出 Relaunch", action: #selector(quit), keyEquivalent: "q")
         quit.target = self
         menu.addItem(quit)
@@ -75,6 +85,20 @@ final class StatusBarController: NSObject, NSMenuDelegate {
     }
 
     @objc private func openLaunchpad() { onOpen() }
+    @objc private func doImport() {
+        let count = importLegacy()
+        let alert = NSAlert()
+        if count >= 0 {
+            alert.messageText = "已导入旧版启动台布局"
+            alert.informativeText = "已还原页面顺序与文件夹分组,共 \(count) 个项目。"
+        } else {
+            alert.messageText = "未找到旧版启动台数据"
+            alert.informativeText = "这台 Mac 上没有可导入的旧版启动台数据库。"
+        }
+        alert.addButton(withTitle: "好")
+        NSApp.activate(ignoringOtherApps: true)
+        alert.runModal()
+    }
     @objc private func toggleLogin() { setLogin(!isLoginEnabled()) }
     @objc private func toggleGesture() { setGesture(!isGestureEnabled()) }
     @objc private func toggleHotkey() { setHotkey(!isHotkeyEnabled()) }

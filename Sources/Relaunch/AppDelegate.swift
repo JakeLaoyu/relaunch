@@ -38,7 +38,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             isGestureEnabled: { [weak self] in self?.defaults.bool(forKey: self?.gestureKey ?? "") ?? false },
             setGesture: { [weak self] in self?.setGesture($0) },
             isHotkeyEnabled: { [weak self] in self?.defaults.bool(forKey: self?.hotkeyKey ?? "") ?? false },
-            setHotkey: { [weak self] in self?.setHotkey($0) }
+            setHotkey: { [weak self] in self?.setHotkey($0) },
+            importLegacy: { [weak self] in self?.launchpad.importFromLegacy() ?? -1 }
         )
     }
 

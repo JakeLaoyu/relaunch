@@ -39,7 +39,9 @@ enum AppScanner {
                 if name.hasSuffix(".app") { name = String(name.dropLast(4)) }
                 let icon = NSWorkspace.shared.icon(forFile: url.path)
                 icon.size = NSSize(width: 128, height: 128)
-                result.append(AppInfo(id: url.path, name: name, url: url, icon: icon))
+                let bundleID = Bundle(url: url)?.bundleIdentifier ?? ""
+                result.append(AppInfo(id: url.path, name: name, url: url,
+                                      icon: icon, bundleID: bundleID))
             } else if (try? url.resourceValues(forKeys: [.isDirectoryKey]))?.isDirectory == true {
                 // Recurse into ordinary subfolders (e.g. Utilities), not into bundles.
                 collect(url, into: &result, seen: &seen, depth: depth + 1)

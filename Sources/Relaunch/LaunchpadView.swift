@@ -10,6 +10,7 @@ struct LaunchpadView: View {
 
     @FocusState private var searchFocused: Bool
     @State private var currentPage: Int? = 0
+    @State private var edgeTimer: Timer?
 
     private let columns = 7
     private let cellWidth: CGFloat = 118
@@ -34,6 +35,15 @@ struct LaunchpadView: View {
             }
             .padding(.vertical, 54)
             .padding(.horizontal, 90)
+
+            // Drag an icon to the left/right gutter to flip pages.
+            if model.query.isEmpty && model.openFolderID == nil {
+                HStack {
+                    edgeFlipZone(forward: false)
+                    Spacer()
+                    edgeFlipZone(forward: true)
+                }
+            }
 
             if let id = model.openFolderID {
                 FolderOverlay(model: model, folderID: id,
@@ -256,6 +266,36 @@ struct LaunchpadView: View {
         let next = (currentPage ?? 0) + delta
         guard next >= 0, next < pages else { return }
         withAnimation(.easeInOut) { currentPage = next }
+    }
+
+    // MARK: - Cross-page drag
+
+    /// A gutter strip that auto-flips pages while a drag hovers over it. The
+    /// drop itself isn't consumed here — the user releases onto a real cell on
+    /// the page they flipped to.
+    private func edgeFlipZone(forward: Bool) -> some View {
+        Color.clear
+            .frame(width: 70)
+            .frame(maxHeight: .infinity)
+            .contentShape(Rectangle())
+            .onTapGesture { onClose() }
+            .dropDestination(for: String.self) { _, _ in
+                false
+            } isTargeted: { targeted in
+                if targeted { startEdgeFlip(forward: forward) } else { stopEdgeFlip() }
+            }
+    }
+
+    private func startEdgeFlip(forward: Bool) {
+        stopEdgeFlip()
+        edgeTimer = Timer.scheduledTimer(withTimeInterval: 0.7, repeats: true) { _ in
+            changePage(forward ? 1 : -1)
+        }
+    }
+
+    private func stopEdgeFlip() {
+        edgeTimer?.invalidate()
+        edgeTimer = nil
     }
 }
 

@@ -16,6 +16,9 @@ final class LaunchpadController: NSObject, NSWindowDelegate {
 
     func toggle() { isOpen ? close() : show() }
 
+    @discardableResult
+    func importFromLegacy() -> Int { model.importFromLegacy() }
+
     func show() {
         if window == nil { buildWindow() }
         guard let window else { return }

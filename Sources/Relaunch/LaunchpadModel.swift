@@ -65,14 +65,49 @@ final class LaunchpadModel: ObservableObject {
             let apps = AppScanner.scan()
             DispatchQueue.main.async {
                 self.appsByPath = Dictionary(apps.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
+                let installed = Set(apps.map { $0.id })
                 if !self.loaded {
-                    self.items = LayoutStore.load(allAppPaths: apps.map { $0.id })
+                    if let saved = LayoutStore.loadFromDisk(installed: installed) {
+                        self.items = saved
+                    } else if let imported = LaunchpadImporter.importLayout(bundleIDToPath: self.bundleMap()) {
+                        // First run with no saved layout: inherit the user's
+                        // classic Launchpad page order and folders.
+                        self.items = imported
+                        self.reconcile(installed: installed)
+                    } else {
+                        self.items = apps.map { .app($0.id) }   // alphabetical
+                        self.save()
+                    }
                     self.loaded = true
                 } else {
-                    self.reconcile(installed: Set(apps.map { $0.id }))
+                    self.reconcile(installed: installed)
                 }
             }
         }
+    }
+
+    private func bundleMap() -> [String: String] {
+        var map: [String: String] = [:]
+        for (path, info) in appsByPath where !info.bundleID.isEmpty { map[info.bundleID] = path }
+        return map
+    }
+
+    /// Re-import page order + folders from the legacy Launchpad database,
+    /// replacing the current layout. Returns the item count, or -1 if there is
+    /// no legacy database to import from.
+    @discardableResult
+    func importFromLegacy() -> Int {
+        if appsByPath.isEmpty {
+            let apps = AppScanner.scan()
+            appsByPath = Dictionary(apps.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
+            loaded = true
+        }
+        guard let imported = LaunchpadImporter.importLayout(bundleIDToPath: bundleMap()) else {
+            return -1
+        }
+        items = imported
+        reconcile(installed: Set(appsByPath.keys))
+        return items.count
     }
 
     /// Drop uninstalled apps and append newly installed ones.
@@ -264,12 +299,11 @@ enum LayoutStore {
         return dir.appendingPathComponent("layout.json")
     }
 
-    static func load(allAppPaths: [String]) -> [LaunchItem] {
-        let installed = Set(allAppPaths)
+    /// Returns the saved layout, or nil if no layout file exists yet.
+    static func loadFromDisk(installed: Set<String>) -> [LaunchItem]? {
         guard let url = fileURL, let data = try? Data(contentsOf: url),
               let entries = try? JSONDecoder().decode([Entry].self, from: data) else {
-            // First run: alphabetical by path's app name is handled by scan order.
-            return allAppPaths.map { .app($0) }
+            return nil
         }
         var present = Set<String>()
         var items: [LaunchItem] = []

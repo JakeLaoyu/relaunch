@@ -30,6 +30,7 @@ for arch in $ARCHS; do
         -framework SwiftUI \
         -framework ServiceManagement \
         -framework Carbon \
+        -lsqlite3 \
         -o "$out" \
         "$ROOT"/Sources/Relaunch/*.swift; then
         slices+=("$out")

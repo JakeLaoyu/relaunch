@@ -6,6 +6,7 @@ struct AppInfo: Identifiable, Hashable {
     let name: String
     let url: URL
     let icon: NSImage
+    let bundleID: String
 
     static func == (lhs: AppInfo, rhs: AppInfo) -> Bool { lhs.id == rhs.id }
     func hash(into hasher: inout Hasher) { hasher.combine(id) }
