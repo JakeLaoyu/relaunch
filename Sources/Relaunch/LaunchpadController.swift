@@ -35,6 +35,7 @@ final class LaunchpadController: NSObject, NSWindowDelegate {
         model.query = ""
         model.openFolderID = nil
         model.currentPage = 0
+        model.applyLayoutSettings()
         model.reload()
 
         // Show on whichever screen the cursor is on.
@@ -108,11 +109,12 @@ final class LaunchpadController: NSObject, NSWindowDelegate {
         if event.momentumPhase != [] { return }              // ignore inertia
         let dx = abs(event.scrollingDeltaX) >= abs(event.scrollingDeltaY)
             ? event.scrollingDeltaX : event.scrollingDeltaY
+        let sign = UserDefaults.standard.bool(forKey: "swipeReversed") ? -1 : 1
 
         if event.phase == [] {                               // discrete mouse wheel
             scrollAccum += dx
             if abs(scrollAccum) > 8 {
-                let delta = scrollAccum > 0 ? 1 : -1
+                let delta = (scrollAccum > 0 ? 1 : -1) * sign
                 scrollAccum = 0
                 withAnimation(.easeInOut) { self.model.changePage(delta) }
             }
@@ -122,10 +124,12 @@ final class LaunchpadController: NSObject, NSWindowDelegate {
         scrollAccum += dx
         if !scrollFired, abs(scrollAccum) > 30 {
             scrollFired = true
-            withAnimation(.easeInOut) { self.model.changePage(scrollAccum > 0 ? 1 : -1) }
+            withAnimation(.easeInOut) { self.model.changePage((scrollAccum > 0 ? 1 : -1) * sign) }
         }
         if event.phase == .ended || event.phase == .cancelled { scrollAccum = 0; scrollFired = false }
     }
+
+    func applyLayoutSettings() { model.applyLayoutSettings() }
 
     private func launch(_ app: AppInfo) {
         let config = NSWorkspace.OpenConfiguration()

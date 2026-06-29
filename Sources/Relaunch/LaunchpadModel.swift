@@ -35,8 +35,24 @@ final class LaunchpadModel: ObservableObject {
     @Published var currentPage = 0
     var lastPageDir = 1     // +1 = moved to a later page, -1 = earlier (slide direction)
 
-    let pageSize = 35
+    // Configurable grid layout (persisted in UserDefaults via Settings).
+    @Published var columns = 7
+    @Published var rows = 5
+    @Published var iconSize: CGFloat = 74
+
+    var pageSize: Int { Swift.max(1, columns * rows) }
     var pageCount: Int { Swift.max(1, (items.count + pageSize - 1) / pageSize) }
+
+    init() { applyLayoutSettings() }
+
+    func applyLayoutSettings() {
+        let d = UserDefaults.standard
+        columns = Swift.max(4, Swift.min(d.object(forKey: "columns") as? Int ?? 7, 10))
+        rows = Swift.max(3, Swift.min(d.object(forKey: "rows") as? Int ?? 5, 8))
+        let size = d.object(forKey: "iconSize") != nil ? CGFloat(d.double(forKey: "iconSize")) : 74
+        iconSize = Swift.max(40, Swift.min(size, 120))
+        if currentPage >= pageCount { currentPage = pageCount - 1 }
+    }
 
     func changePage(_ delta: Int) { setPage(currentPage + delta) }
 

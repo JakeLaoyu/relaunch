@@ -9,6 +9,7 @@ struct SettingsActions {
     let setHotkey: (Bool) -> Void
     let isLogin: () -> Bool
     let importLegacy: () -> Int
+    let reloadLayout: () -> Void
 }
 
 struct SettingsView: View {
@@ -18,6 +19,10 @@ struct SettingsView: View {
     @AppStorage("showMenuBar") private var showMenuBar = true
     @AppStorage("gestureEnabled") private var gestureEnabled = true
     @AppStorage("hotkeyEnabled") private var hotkeyEnabled = true
+    @AppStorage("iconSize") private var iconSize = 74.0
+    @AppStorage("columns") private var columns = 7
+    @AppStorage("rows") private var rows = 5
+    @AppStorage("swipeReversed") private var swipeReversed = false
     @State private var launchAtLogin = false
     @State private var importResult: String?
 
@@ -28,6 +33,23 @@ struct SettingsView: View {
                     .onChange(of: showDock) { actions.setDock(showDock) }
                 Toggle("在菜单栏显示图标", isOn: $showMenuBar)
                     .onChange(of: showMenuBar) { actions.setMenuBar(showMenuBar) }
+            }
+
+            Section("网格") {
+                HStack {
+                    Text("图标大小")
+                    Slider(value: $iconSize, in: 48...112, step: 2)
+                        .onChange(of: iconSize) { actions.reloadLayout() }
+                    Text("\(Int(iconSize))").monospacedDigit().foregroundStyle(.secondary)
+                }
+                Stepper("每行图标数：\(columns)", value: $columns, in: 4...10)
+                    .onChange(of: columns) { actions.reloadLayout() }
+                Stepper("每页行数：\(rows)", value: $rows, in: 3...8)
+                    .onChange(of: rows) { actions.reloadLayout() }
+            }
+
+            Section("翻页") {
+                Toggle("反转双指滑动方向", isOn: $swipeReversed)
             }
 
             Section("唤起方式") {

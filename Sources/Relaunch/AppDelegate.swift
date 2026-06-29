@@ -38,7 +38,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             setGesture: { [weak self] in self?.setGesture($0) },
             setHotkey: { [weak self] in self?.setHotkey($0) },
             isLogin: { LoginItem.isEnabled },
-            importLegacy: { [weak self] in self?.launchpad.importFromLegacy() ?? -1 }
+            importLegacy: { [weak self] in self?.launchpad.importFromLegacy() ?? -1 },
+            reloadLayout: { [weak self] in self?.launchpad.applyLayoutSettings() }
         )
         settingsWindow = SettingsWindowController(actions: actions)
         launchpad.onOpenSettings = { [weak self] in self?.openSettings() }

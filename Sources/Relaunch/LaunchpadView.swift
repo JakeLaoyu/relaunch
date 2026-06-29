@@ -27,13 +27,12 @@ struct LaunchpadView: View {
         currentPageItems.filter { $0.id != dragID }
     }
 
-    private let columns = 7
-    private let rows = 5
+    private var columns: Int { model.columns }
+    private var rows: Int { model.rows }
     private var pageSize: Int { model.pageSize }
 
-    // Columns fill the available width (like the classic grid); rows use a
-    // fixed comfortable height and the block is top-aligned.
-    private let cellH: CGFloat = 138
+    // Columns fill the available width; row height scales with the icon size.
+    private var cellH: CGFloat { model.iconSize + 64 }
     private func cellW(_ size: CGSize) -> CGFloat { size.width / CGFloat(columns) }
     private func gridOrigin(_ size: CGSize) -> CGPoint { CGPoint(x: 0, y: 8) }
 
@@ -367,7 +366,7 @@ struct LaunchpadView: View {
         VStack(spacing: 7) {
             Image(nsImage: app.icon)
                 .resizable().interpolation(.high)
-                .frame(width: 74, height: 74)
+                .frame(width: model.iconSize, height: model.iconSize)
             label(app.name)
         }
         .padding(.vertical, 6)
@@ -387,7 +386,7 @@ struct LaunchpadView: View {
                 }
                 .padding(10)
             }
-            .frame(width: 74, height: 74)
+            .frame(width: model.iconSize, height: model.iconSize)
             label(folder.name)
         }
         .padding(.vertical, 6)
