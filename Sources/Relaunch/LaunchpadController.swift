@@ -20,6 +20,9 @@ final class LaunchpadController: NSObject, NSWindowDelegate {
         if window == nil { buildWindow() }
         guard let window else { return }
 
+        // Always open to a clean state.
+        model.query = ""
+        model.openFolderID = nil
         model.reload()
 
         // Show on whichever screen the cursor is on.

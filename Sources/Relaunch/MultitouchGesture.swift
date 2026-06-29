@@ -72,14 +72,14 @@ private func contactFrameCallback(_ device: Int32,
     // Keep the baseline at the widest spread seen so an outward move re-arms it.
     if spread > state.startSpread { state.startSpread = spread }
 
-    // Fire on a decisive inward pinch. Two independent conditions so the
-    // gesture is recognized regardless of how wide the fingers started:
-    //   1. relative: shrank to less than half the widest spread
-    //   2. absolute: moved inward a clear amount AND fingers ended close together
+    // Fire mid-pinch. Tuned to real trackpad data: a thumb + three-finger
+    // pinch starts near spread ~0.30 and descends to ~0.17 before a finger
+    // lifts, so we trigger once the spread has started reasonably wide,
+    // shrunk by a clear absolute amount, AND fallen well below its start.
+    // A four-finger *swipe* translates without converging, so spread stays
+    // roughly constant and none of these conditions are met.
     let drop = state.startSpread - spread
-    let relative = state.startSpread > 0.14 && spread < state.startSpread * 0.5
-    let absolute = drop > 0.045 && spread < 0.13
-    if relative || absolute {
+    if state.startSpread > 0.20, drop > 0.07, spread < state.startSpread * 0.66 {
         if timestamp - state.lastFire > 1.0 {
             state.lastFire = timestamp
             state.tracking = false
