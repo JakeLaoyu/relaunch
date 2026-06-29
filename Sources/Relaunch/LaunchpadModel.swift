@@ -168,6 +168,45 @@ final class LaunchpadModel: ObservableObject {
         save()
     }
 
+    // MARK: - Live custom drag (no disk writes until commitLayout)
+
+    /// Move an item to a new absolute index. Used continuously while dragging.
+    func moveItem(id: String, toIndex index: Int) {
+        guard let from = items.firstIndex(where: { $0.id == id }) else { return }
+        let target = max(0, min(index, items.count - 1))
+        if from == target { return }
+        let item = items.remove(at: from)
+        items.insert(item, at: min(target, items.count))
+    }
+
+    /// Merge the dragged app into the target app (new folder) or folder (append).
+    func makeOrJoinFolder(draggingID: String, targetID: String) {
+        guard draggingID != targetID,
+              let dragItem = items.first(where: { $0.id == draggingID }),
+              case .app(let dragPath) = dragItem,
+              let targetItem = items.first(where: { $0.id == targetID }) else {
+            commitLayout(); return
+        }
+        items.removeAll { $0.id == draggingID }
+        switch targetItem {
+        case .folder(let f):
+            if let i = items.firstIndex(where: { $0.id == "folder:" + f.id }),
+               case .folder(var ff) = items[i] {
+                if !ff.appPaths.contains(dragPath) { ff.appPaths.append(dragPath) }
+                items[i] = .folder(ff)
+            }
+        case .app(let targetPath):
+            if let i = items.firstIndex(where: { $0.id == "app:" + targetPath }) {
+                items[i] = .folder(Folder(id: UUID().uuidString, name: "文件夹",
+                                          appPaths: [targetPath, dragPath]))
+            }
+        }
+        cleanup(); save()
+    }
+
+    /// Persist the current order once a drag finishes.
+    func commitLayout() { cleanup(); save() }
+
     /// Core drop handler for the top-level grid.
     func performDrop(payload: String, targetID: String, zone: DropZone) {
         // Dropping an item onto itself is a no-op in any zone. (For .before/
