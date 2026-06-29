@@ -288,21 +288,17 @@ struct LaunchpadView: View {
         if let target = folderTargetID, let src = dragID {
             withAnimation { model.makeOrJoinFolder(draggingID: src, targetID: target) }
         } else if let src = dragID {
-            let flow = flowItems()
-            let beforeID = gapSlot < flow.count ? flow[gapSlot].id : firstIDAfterCurrentPage()
-            withAnimation { model.moveItem(id: src, before: beforeID) }
+            // Absolute index of the gap on the page being viewed. moveItem(toIndex:)
+            // removes the source first and inserts here, which keeps cross-page
+            // drops on the viewed page — a by-anchor insert would land one slot
+            // earlier (end of the previous page) once the source is removed.
+            let target = model.currentPage * pageSize + gapSlot
+            withAnimation { model.moveItem(id: src, toIndex: target) }
             model.commitLayout()
         }
         dragID = nil
         folderTargetID = nil
         hoverItemID = nil
-    }
-
-    /// The first item of the next page (nil if this is the last page) — used as
-    /// the insertion anchor when the gap is at the end of the current page.
-    private func firstIDAfterCurrentPage() -> String? {
-        let p = pages
-        return p.indices.contains(model.currentPage + 1) ? p[model.currentPage + 1].first?.id : nil
     }
 
     private func scheduleDwell(_ id: String) {
@@ -454,6 +450,7 @@ private struct FolderOverlay: View {
     @State private var dragPath: String?
     @State private var dragPoint: CGPoint = .zero
     @State private var panelFrame: CGRect = .zero
+    @State private var cellFrames: [String: CGRect] = [:]
 
     private let columns = 6
 
@@ -520,6 +517,11 @@ private struct FolderOverlay: View {
         .frame(width: 108)
         .padding(.vertical, 6)
         .contentShape(Rectangle())
+        .background(GeometryReader { g -> Color in
+            let f = g.frame(in: .named("folderRoot"))
+            DispatchQueue.main.async { cellFrames[path] = f }
+            return Color.clear
+        })
         .contextMenu {
             Button("移出文件夹") { model.removeFromFolder(folderID, path) }
         }
@@ -533,10 +535,16 @@ private struct FolderOverlay: View {
                 .onEnded { value in
                     defer { dragPath = nil }
                     if dragPath == nil { onLaunch(app); return }   // tap
-                    // Released outside the panel → take the app out of the folder.
                     if !panelFrame.contains(value.location) {
+                        // Released outside the panel → take the app out.
                         model.removeFromFolder(folderID, path)
                         model.openFolderID = nil
+                    } else if let target = cellFrames.first(where: {
+                        $0.key != path && $0.value.contains(value.location)
+                    }) {
+                        // Released over another icon → reorder within the folder.
+                        let zone: DropZone = value.location.x < target.value.midX ? .before : .after
+                        model.reorderInFolder(folderID, move: path, target: target.key, zone: zone)
                     }
                 }
         )

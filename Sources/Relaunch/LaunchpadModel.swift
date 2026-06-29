@@ -187,18 +187,6 @@ final class LaunchpadModel: ObservableObject {
         items.insert(item, at: min(target, items.count))
     }
 
-    /// Move an item so it sits immediately before `beforeID` (or to the end if
-    /// nil). Used when a drag is released into a reorder gap.
-    func moveItem(id: String, before beforeID: String?) {
-        guard let from = items.firstIndex(where: { $0.id == id }) else { return }
-        let item = items.remove(at: from)
-        if let beforeID, let to = items.firstIndex(where: { $0.id == beforeID }) {
-            items.insert(item, at: to)
-        } else {
-            items.append(item)
-        }
-    }
-
     /// Merge the dragged app into the target app (new folder) or folder (append).
     func makeOrJoinFolder(draggingID: String, targetID: String) {
         guard draggingID != targetID,
