@@ -32,6 +32,14 @@ final class LaunchpadModel: ObservableObject {
     @Published var items: [LaunchItem] = []     // top-level, ordered
     @Published var query: String = ""
     @Published var openFolderID: String? = nil
+    @Published var currentPage = 0
+
+    let pageSize = 35
+    var pageCount: Int { Swift.max(1, (items.count + pageSize - 1) / pageSize) }
+
+    func changePage(_ delta: Int) {
+        currentPage = Swift.max(0, Swift.min(currentPage + delta, pageCount - 1))
+    }
 
     private(set) var appsByPath: [String: AppInfo] = [:]
     private var loaded = false

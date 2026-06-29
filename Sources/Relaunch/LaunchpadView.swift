@@ -10,7 +10,6 @@ struct LaunchpadView: View {
     let onOpenSettings: () -> Void
 
     @FocusState private var searchFocused: Bool
-    @State private var currentPage = 0
 
     // Drag state
     @State private var dragID: String?          // item being dragged
@@ -30,22 +29,18 @@ struct LaunchpadView: View {
 
     private let columns = 7
     private let rows = 5
-    private var pageSize: Int { columns * rows }
+    private var pageSize: Int { model.pageSize }
 
-    // Fixed cell size keeps the grid tight and consistent (no stretching to
-    // fill the height). The block is centered horizontally and top-aligned.
-    private let cellW: CGFloat = 126
-    private let cellH: CGFloat = 112
-
-    private func gridOrigin(_ size: CGSize) -> CGPoint {
-        let gridWidth = CGFloat(columns) * cellW
-        return CGPoint(x: max(0, (size.width - gridWidth) / 2), y: 8)
-    }
+    // Columns fill the available width (like the classic grid); rows use a
+    // fixed comfortable height and the block is top-aligned.
+    private let cellH: CGFloat = 138
+    private func cellW(_ size: CGSize) -> CGFloat { size.width / CGFloat(columns) }
+    private func gridOrigin(_ size: CGSize) -> CGPoint { CGPoint(x: 0, y: 8) }
 
     private var pages: [[LaunchItem]] { paginate(model.items) }
     private var currentPageItems: [LaunchItem] {
         let p = pages
-        return p.indices.contains(currentPage) ? p[currentPage] : []
+        return p.indices.contains(model.currentPage) ? p[model.currentPage] : []
     }
 
     var body: some View {
@@ -74,7 +69,7 @@ struct LaunchpadView: View {
         .background(VisualEffectView().ignoresSafeArea())
         .environment(\.colorScheme, .dark)
         .onAppear { searchFocused = true }
-        .onChange(of: model.query) { currentPage = 0 }
+        .onChange(of: model.query) { model.currentPage = 0 }
         .onKeyPress(.escape) {
             if model.openFolderID != nil { model.openFolderID = nil }
             else if !model.query.isEmpty { model.query = "" }
@@ -133,13 +128,13 @@ struct LaunchpadView: View {
             ZStack(alignment: .topLeading) {
                 // Only the current page is rendered (no multi-page spill).
                 pageGridView(currentPageItems, size: geo.size)
-                    .id(currentPage)
+                    .id(model.currentPage)
                     .transition(.opacity)
 
                 // Floating dragged icon follows the cursor.
                 if let id = dragID, let item = model.items.first(where: { $0.id == id }) {
                     cellView(item)
-                        .frame(width: cellW, height: cellH)
+                        .frame(width: cellW(geo.size), height: cellH)
                         .scaleEffect(1.18)
                         .shadow(color: .black.opacity(0.35), radius: 12, y: 6)
                         .position(dragPoint)
@@ -156,6 +151,7 @@ struct LaunchpadView: View {
 
     private func pageGridView(_ pageItems: [LaunchItem], size: CGSize) -> some View {
         let origin = gridOrigin(size)
+        let cw = cellW(size)
         // While dragging, the dragged icon floats (out of the flow) and the
         // remaining icons reflow around a gap at `gapSlot`.
         let dragging = dragID != nil
@@ -166,9 +162,9 @@ struct LaunchpadView: View {
                 let slot = (gap >= 0 && idx >= gap) ? idx + 1 : idx
                 let col = slot % columns, row = slot / columns
                 cellView(item)
-                    .frame(width: cellW, height: cellH)
+                    .frame(width: cw, height: cellH)
                     .scaleEffect(item.id == folderTargetID ? 1.14 : 1)
-                    .position(x: origin.x + cellW * (CGFloat(col) + 0.5),
+                    .position(x: origin.x + cw * (CGFloat(col) + 0.5),
                               y: origin.y + cellH * (CGFloat(row) + 0.5))
                     .animation(.spring(response: 0.3, dampingFraction: 0.72), value: slot)
             }
@@ -228,17 +224,18 @@ struct LaunchpadView: View {
 
     private func hitTest(_ point: CGPoint, size: CGSize) -> String? {
         let origin = gridOrigin(size)
+        let cw = cellW(size)
         let lx = point.x - origin.x, ly = point.y - origin.y
         guard lx >= 0, ly >= 0,
-              lx <= CGFloat(columns) * cellW, ly <= CGFloat(rows) * cellH else { return nil }
-        let col = min(max(Int(lx / cellW), 0), columns - 1)
+              lx <= CGFloat(columns) * cw, ly <= CGFloat(rows) * cellH else { return nil }
+        let col = min(max(Int(lx / cw), 0), columns - 1)
         let row = min(max(Int(ly / cellH), 0), rows - 1)
         let idx = row * columns + col
         let items = currentPageItems
         guard idx < items.count else { return nil }
         // Only count presses near the icon, so gaps still close the Launchpad.
-        let cx = cellW * (CGFloat(col) + 0.5), cy = cellH * (CGFloat(row) + 0.5)
-        guard abs(lx - cx) < cellW * 0.46, abs(ly - cy) < cellH * 0.48 else { return nil }
+        let cx = cw * (CGFloat(col) + 0.5), cy = cellH * (CGFloat(row) + 0.5)
+        guard abs(lx - cx) < cw * 0.46, abs(ly - cy) < cellH * 0.48 else { return nil }
         return items[idx].id
     }
 
@@ -253,6 +250,7 @@ struct LaunchpadView: View {
     private func handleDragMove(_ point: CGPoint, size: CGSize) {
         guard let dragID else { return }
         let origin = gridOrigin(size)
+        let cw = cellW(size)
         let lx = point.x - origin.x, ly = point.y - origin.y
 
         // Edge → flip page.
@@ -262,7 +260,7 @@ struct LaunchpadView: View {
         else { stopEdgeFlip() }
 
         let flow = flowItems()
-        let col = min(max(Int(lx / cellW), 0), columns - 1)
+        let col = min(max(Int(lx / cw), 0), columns - 1)
         let row = min(max(Int(ly / cellH), 0), rows - 1)
         let s = min(max(row * columns + col, 0), flow.count)
 
@@ -304,7 +302,7 @@ struct LaunchpadView: View {
     /// the insertion anchor when the gap is at the end of the current page.
     private func firstIDAfterCurrentPage() -> String? {
         let p = pages
-        return p.indices.contains(currentPage + 1) ? p[currentPage + 1].first?.id : nil
+        return p.indices.contains(model.currentPage + 1) ? p[model.currentPage + 1].first?.id : nil
     }
 
     private func scheduleDwell(_ id: String) {
@@ -337,9 +335,9 @@ struct LaunchpadView: View {
     }
 
     private func flipDuringDrag(forward: Bool) {
-        let next = currentPage + (forward ? 1 : -1)
+        let next = model.currentPage + (forward ? 1 : -1)
         guard next >= 0, next < pages.count, dragID != nil else { return }
-        withAnimation(.easeInOut) { currentPage = next }
+        withAnimation(.easeInOut) { model.currentPage = next }
         // Reset the gap to the start of the new page; the icon stays floating.
         gapSlot = 0; lastHoverSlot = 0; hoverItemID = nil; folderTargetID = nil
     }
@@ -418,18 +416,16 @@ struct LaunchpadView: View {
         HStack(spacing: 9) {
             ForEach(0..<Swift.max(count, 1), id: \.self) { i in
                 Circle()
-                    .fill(.white.opacity(i == currentPage ? 0.9 : 0.32))
+                    .fill(.white.opacity(i == model.currentPage ? 0.9 : 0.32))
                     .frame(width: 7, height: 7)
-                    .onTapGesture { withAnimation(.easeInOut) { currentPage = i } }
+                    .onTapGesture { withAnimation(.easeInOut) { model.currentPage = i } }
             }
         }
         .frame(height: 12)
     }
 
     private func changePage(_ delta: Int) {
-        let next = currentPage + delta
-        guard next >= 0, next < pages.count else { return }
-        withAnimation(.easeInOut) { currentPage = next }
+        withAnimation(.easeInOut) { model.changePage(delta) }
     }
 }
 
@@ -455,6 +451,10 @@ private struct FolderOverlay: View {
     @State private var name: String = ""
     @FocusState private var nameFocused: Bool
 
+    @State private var dragPath: String?
+    @State private var dragPoint: CGPoint = .zero
+    @State private var panelFrame: CGRect = .zero
+
     private let columns = 6
 
     var body: some View {
@@ -462,7 +462,7 @@ private struct FolderOverlay: View {
             Color.black.opacity(0.45)
                 .ignoresSafeArea()
                 .contentShape(Rectangle())
-                .onTapGesture { model.openFolderID = nil }
+                .onTapGesture { if dragPath == nil { model.openFolderID = nil } }
 
             if let folder = model.folder(folderID) {
                 VStack(spacing: 18) {
@@ -480,7 +480,8 @@ private struct FolderOverlay: View {
                                              count: columns), spacing: 22) {
                         ForEach(folder.appPaths, id: \.self) { path in
                             if let app = model.app(path) {
-                                folderApp(app, path: path, folderID: folder.id)
+                                folderApp(app, path: path)
+                                    .opacity(path == dragPath ? 0 : 1)
                             }
                         }
                     }
@@ -488,13 +489,28 @@ private struct FolderOverlay: View {
                 .padding(34)
                 .frame(maxWidth: 760)
                 .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 28))
+                .background(GeometryReader { g -> Color in
+                    let f = g.frame(in: .named("folderRoot"))
+                    DispatchQueue.main.async { panelFrame = f }
+                    return Color.clear
+                })
                 .onAppear { name = folder.name }
             }
+
+            // Floating dragged icon.
+            if let path = dragPath, let app = model.app(path) {
+                Image(nsImage: app.icon).resizable().interpolation(.high)
+                    .frame(width: 70, height: 70)
+                    .shadow(color: .black.opacity(0.35), radius: 10, y: 5)
+                    .position(dragPoint)
+                    .allowsHitTesting(false)
+            }
         }
+        .coordinateSpace(name: "folderRoot")
         .environment(\.colorScheme, .dark)
     }
 
-    private func folderApp(_ app: AppInfo, path: String, folderID: String) -> some View {
+    private func folderApp(_ app: AppInfo, path: String) -> some View {
         VStack(spacing: 7) {
             Image(nsImage: app.icon).resizable().interpolation(.high)
                 .frame(width: 70, height: 70)
@@ -504,10 +520,26 @@ private struct FolderOverlay: View {
         .frame(width: 108)
         .padding(.vertical, 6)
         .contentShape(Rectangle())
-        .onTapGesture { onLaunch(app) }
         .contextMenu {
             Button("移出文件夹") { model.removeFromFolder(folderID, path) }
         }
+        .gesture(
+            DragGesture(minimumDistance: 0, coordinateSpace: .named("folderRoot"))
+                .onChanged { value in
+                    let moved = abs(value.translation.width) > 6 || abs(value.translation.height) > 6
+                    if dragPath == nil && moved { dragPath = path }
+                    if dragPath == path { dragPoint = value.location }
+                }
+                .onEnded { value in
+                    defer { dragPath = nil }
+                    if dragPath == nil { onLaunch(app); return }   // tap
+                    // Released outside the panel → take the app out of the folder.
+                    if !panelFrame.contains(value.location) {
+                        model.removeFromFolder(folderID, path)
+                        model.openFolderID = nil
+                    }
+                }
+        )
     }
 
     private func commitName() {

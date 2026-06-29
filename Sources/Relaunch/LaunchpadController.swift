@@ -12,6 +12,11 @@ final class LaunchpadController: NSObject, NSWindowDelegate {
     private var window: LaunchpadWindow?
     private let model = LaunchpadModel()
 
+    // Trackpad swipe accumulator for page flips.
+    private var scrollAccum: CGFloat = 0
+    private var scrollFired = false
+    private var scrollMonitor: Any?
+
     /// Called when the user taps the "more" button in the search row.
     var onOpenSettings: (() -> Void)?
 
@@ -29,6 +34,7 @@ final class LaunchpadController: NSObject, NSWindowDelegate {
         // Always open to a clean state.
         model.query = ""
         model.openFolderID = nil
+        model.currentPage = 0
         model.reload()
 
         // Show on whichever screen the cursor is on.
@@ -84,6 +90,41 @@ final class LaunchpadController: NSObject, NSWindowDelegate {
         // SwiftUI background (VisualEffectView) instead of a wrapping NSView.
         w.contentViewController = NSHostingController(rootView: root)
         window = w
+        setupScrollMonitor()
+    }
+
+    private func setupScrollMonitor() {
+        guard scrollMonitor == nil else { return }
+        scrollMonitor = NSEvent.addLocalMonitorForEvents(matching: .scrollWheel) { [weak self] event in
+            self?.handleScroll(event)
+            return event
+        }
+    }
+
+    /// Two-finger trackpad swipe (or horizontal wheel) flips pages.
+    private func handleScroll(_ event: NSEvent) {
+        guard let window, window.isVisible, window.isKeyWindow,
+              model.openFolderID == nil, model.query.isEmpty else { return }
+        if event.momentumPhase != [] { return }              // ignore inertia
+        let dx = abs(event.scrollingDeltaX) >= abs(event.scrollingDeltaY)
+            ? event.scrollingDeltaX : event.scrollingDeltaY
+
+        if event.phase == [] {                               // discrete mouse wheel
+            scrollAccum += dx
+            if abs(scrollAccum) > 8 {
+                let delta = scrollAccum > 0 ? 1 : -1
+                scrollAccum = 0
+                withAnimation(.easeInOut) { self.model.changePage(delta) }
+            }
+            return
+        }
+        if event.phase == .began { scrollAccum = 0; scrollFired = false }
+        scrollAccum += dx
+        if !scrollFired, abs(scrollAccum) > 30 {
+            scrollFired = true
+            withAnimation(.easeInOut) { self.model.changePage(scrollAccum > 0 ? 1 : -1) }
+        }
+        if event.phase == .ended || event.phase == .cancelled { scrollAccum = 0; scrollFired = false }
     }
 
     private func launch(_ app: AppInfo) {
