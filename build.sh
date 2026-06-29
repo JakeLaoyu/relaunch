@@ -50,8 +50,17 @@ lipo -create -output "$APP/Contents/MacOS/Relaunch" "${slices[@]}"
 rm -f "${slices[@]}"
 lipo -info "$APP/Contents/MacOS/Relaunch"
 
-echo "==> Ad-hoc signing"
-codesign --force --sign - "$APP"
+# Sign with a real identity by exporting CODESIGN_IDENTITY, e.g.
+#   CODESIGN_IDENTITY="Developer ID Application: Your Name (TEAMID)" ./build.sh
+# Otherwise an ad-hoc signature is used (fine for running locally).
+SIGN_ID="${CODESIGN_IDENTITY:--}"
+if [ "$SIGN_ID" = "-" ]; then
+    echo "==> Ad-hoc signing"
+    codesign --force --sign - "$APP"
+else
+    echo "==> Signing with: $SIGN_ID"
+    codesign --force --options runtime --timestamp --sign "$SIGN_ID" "$APP"
+fi
 
 echo "==> Done: $APP"
 echo "    Run with: open \"$APP\"   (or)   \"$APP/Contents/MacOS/Relaunch\""

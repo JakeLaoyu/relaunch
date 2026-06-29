@@ -5,7 +5,7 @@
     <key>CFBundleExecutable</key>
     <string>Relaunch</string>
     <key>CFBundleIdentifier</key>
-    <string>com.jake.relaunch</string>
+    <string>com.mindhex.relaunch</string>
     <key>CFBundleName</key>
     <string>Relaunch</string>
     <key>CFBundleDisplayName</key>
