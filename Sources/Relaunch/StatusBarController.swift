@@ -1,37 +1,19 @@
 import AppKit
 
-/// Persistent menu-bar item with its dropdown menu.
-final class StatusBarController: NSObject, NSMenuDelegate {
+/// Menu-bar status item and its dropdown menu. Created only when the user has
+/// enabled the menu-bar icon; releasing the instance removes the item.
+final class StatusBarController: NSObject {
     private let item: NSStatusItem
 
     private let onOpen: () -> Void
-    private let isLoginEnabled: () -> Bool
-    private let setLogin: (Bool) -> Void
-    private let isGestureEnabled: () -> Bool
-    private let setGesture: (Bool) -> Void
-    private let isHotkeyEnabled: () -> Bool
-    private let setHotkey: (Bool) -> Void
+    private let onSettings: () -> Void
     private let importLegacy: () -> Int
 
-    private let loginItem = NSMenuItem(title: "开机启动", action: #selector(toggleLogin), keyEquivalent: "")
-    private let gestureItem = NSMenuItem(title: "捏合手势唤起", action: #selector(toggleGesture), keyEquivalent: "")
-    private let hotkeyItem = NSMenuItem(title: "快捷键唤起 (⌃⌥L)", action: #selector(toggleHotkey), keyEquivalent: "")
-
     init(onOpen: @escaping () -> Void,
-         isLoginEnabled: @escaping () -> Bool,
-         setLogin: @escaping (Bool) -> Void,
-         isGestureEnabled: @escaping () -> Bool,
-         setGesture: @escaping (Bool) -> Void,
-         isHotkeyEnabled: @escaping () -> Bool,
-         setHotkey: @escaping (Bool) -> Void,
+         onSettings: @escaping () -> Void,
          importLegacy: @escaping () -> Int) {
         self.onOpen = onOpen
-        self.isLoginEnabled = isLoginEnabled
-        self.setLogin = setLogin
-        self.isGestureEnabled = isGestureEnabled
-        self.setGesture = setGesture
-        self.isHotkeyEnabled = isHotkeyEnabled
-        self.setHotkey = setHotkey
+        self.onSettings = onSettings
         self.importLegacy = importLegacy
 
         item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
@@ -46,20 +28,18 @@ final class StatusBarController: NSObject, NSMenuDelegate {
         buildMenu()
     }
 
+    deinit { NSStatusBar.system.removeStatusItem(item) }
+
     private func buildMenu() {
         let menu = NSMenu()
-        menu.delegate = self
 
         let open = NSMenuItem(title: "打开启动台", action: #selector(openLaunchpad), keyEquivalent: "")
         open.target = self
         menu.addItem(open)
 
-        menu.addItem(.separator())
-
-        for entry in [hotkeyItem, gestureItem, loginItem] {
-            entry.target = self
-            menu.addItem(entry)
-        }
+        let settings = NSMenuItem(title: "设置…", action: #selector(openSettings), keyEquivalent: ",")
+        settings.target = self
+        menu.addItem(settings)
 
         menu.addItem(.separator())
 
@@ -77,14 +57,9 @@ final class StatusBarController: NSObject, NSMenuDelegate {
         item.menu = menu
     }
 
-    // Refresh checkmarks each time the menu opens.
-    func menuWillOpen(_ menu: NSMenu) {
-        loginItem.state = isLoginEnabled() ? .on : .off
-        gestureItem.state = isGestureEnabled() ? .on : .off
-        hotkeyItem.state = isHotkeyEnabled() ? .on : .off
-    }
-
     @objc private func openLaunchpad() { onOpen() }
+    @objc private func openSettings() { onSettings() }
+    @objc private func quit() { NSApp.terminate(nil) }
     @objc private func doImport() {
         let count = importLegacy()
         let alert = NSAlert()
@@ -99,8 +74,4 @@ final class StatusBarController: NSObject, NSMenuDelegate {
         NSApp.activate(ignoringOtherApps: true)
         alert.runModal()
     }
-    @objc private func toggleLogin() { setLogin(!isLoginEnabled()) }
-    @objc private func toggleGesture() { setGesture(!isGestureEnabled()) }
-    @objc private func toggleHotkey() { setHotkey(!isHotkeyEnabled()) }
-    @objc private func quit() { NSApp.terminate(nil) }
 }

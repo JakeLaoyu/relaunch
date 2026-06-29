@@ -4,13 +4,19 @@ Guidance for working in this repository.
 
 ## What this is
 
-**Relaunch** is a native macOS menu-bar app that recreates the classic
-full-screen Launchpad (removed/changed in macOS 26). It's a Swift + AppKit +
-SwiftUI app that runs as an `LSUIElement` accessory (no Dock icon).
+**Relaunch** is a native macOS app that recreates the classic full-screen
+Launchpad (removed/changed in macOS 26). It's a Swift + AppKit + SwiftUI app.
+
+Activation policy is chosen at runtime from settings: `.regular` (Dock icon,
+**the default**) or `.accessory` (menu-bar only, no Dock). There is no
+`LSUIElement` in the plist. The Dock and menu-bar icons can each be toggled in
+Settings, but the app keeps at least one of them visible.
 
 Core features: paged icon grid with type-to-search, folders with drag-to-organize,
-import of the user's existing (classic) Launchpad layout, and four ways to open
-it — trackpad pinch, global hotkey (⌃⌥L), menu-bar icon click, launch at login.
+import of the user's existing (classic) Launchpad layout, a Settings window
+(opened from the "•••" button in the search row or the menu), and five ways to
+open it — trackpad pinch, global hotkey (⌃⌥L), Dock icon click, menu-bar icon
+click, launch at login.
 
 ## Build, run, test
 
@@ -42,9 +48,13 @@ Build specifics that matter:
 
 ## Verifying changes
 
-**The full-screen overlay and the menu-bar UI cannot be screenshotted by the
-assistant's computer-use tooling** — an `LSUIElement` app is excluded from the
-screenshot allowlist. So:
+**Screenshot caveat depends on activation policy.** When the Dock icon is
+enabled (the default `.regular` policy), the app IS in the computer-use
+allowlist and the overlay/Settings windows CAN be screenshotted — install it,
+`request_access(["Relaunch"])`, then `open_application("Relaunch")` triggers the
+reopen handler and shows the Launchpad. When the user switches to `.accessory`
+(Dock off, menu-bar only), it drops out of the allowlist and cannot be
+screenshotted. For logic that must be verified regardless:
 - Verify non-UI logic directly with a standalone `swift` script (this is how the
   app scanner, the `MultitouchSupport` load, and the legacy importer were
   confirmed). Standalone scripts using SQLite must be compiled with `swiftc
@@ -60,18 +70,21 @@ lifecycle, so we control the borderless overlay window and accessory activation.
 
 | File | Responsibility |
 |------|----------------|
-| `main.swift` | Entry point; sets `.accessory` activation policy |
-| `AppDelegate.swift` | Coordinator wiring window + status bar + hotkey + gesture + login |
+| `main.swift` | Entry point; policy is decided by AppDelegate, not here |
+| `AppDelegate.swift` | Coordinator: activation policy, Dock reopen→open, status item show/hide, settings, hotkey, gesture |
 | `AppInfo.swift` | App model (path, name, url, icon, **bundleID** for import matching) |
 | `AppScanner.swift` | Walks `/Applications`, `/System/Applications`, `~/Applications` |
 | `LaunchpadModel.swift` | Editable layout (apps + folders), search, drag ops, JSON persistence (`LayoutStore`) |
-| `LaunchpadView.swift` | SwiftUI grid, folder cells, folder overlay, drag/drop, cross-page edge-flip |
+| `LaunchpadView.swift` | SwiftUI grid, folder cells, folder overlay, drag/drop, cross-page edge-flip, "•••" more button |
 | `LaunchpadController.swift` | Borderless key-capable overlay window (`LaunchpadWindow`), show/hide |
-| `StatusBarController.swift` | Menu-bar `NSStatusItem` and its menu |
+| `StatusBarController.swift` | Menu-bar `NSStatusItem` + menu (created/released to show/hide) |
+| `SettingsView.swift` | SwiftUI settings form (`@AppStorage` + `SettingsActions` callbacks) |
+| `SettingsWindowController.swift` | Titled window hosting `SettingsView` |
 | `HotkeyManager.swift` | Carbon global hotkey (`RegisterEventHotKey`) |
 | `MultitouchGesture.swift` | Trackpad pinch detection via private `MultitouchSupport` |
 | `LoginItem.swift` | Launch at login via `SMAppService` |
 | `LaunchpadImporter.swift` | Reads the classic Launchpad SQLite db |
+| `Tools/makeicon.swift` | Renders `Resources/AppIcon.icns` (squircle + grid); not part of the app build |
 
 ## Subsystem gotchas
 

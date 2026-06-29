@@ -12,6 +12,9 @@ final class LaunchpadController: NSObject, NSWindowDelegate {
     private var window: LaunchpadWindow?
     private let model = LaunchpadModel()
 
+    /// Called when the user taps the "more" button in the search row.
+    var onOpenSettings: (() -> Void)?
+
     var isOpen: Bool { window?.isVisible ?? false }
 
     func toggle() { isOpen ? close() : show() }
@@ -75,7 +78,11 @@ final class LaunchpadController: NSObject, NSWindowDelegate {
         let root = LaunchpadView(
             model: model,
             onLaunch: { [weak self] in self?.launch($0) },
-            onClose: { [weak self] in self?.close() }
+            onClose: { [weak self] in self?.close() },
+            onOpenSettings: { [weak self] in
+                self?.close()
+                self?.onOpenSettings?()
+            }
         )
         let host = NSHostingView(rootView: root)
         host.frame = effect.bounds

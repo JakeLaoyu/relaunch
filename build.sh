@@ -15,8 +15,9 @@ echo "==> Cleaning"
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 
-echo "==> Writing Info.plist"
+echo "==> Writing Info.plist + resources"
 cp "$ROOT/Resources/Info.plist" "$APP/Contents/Info.plist"
+[ -f "$ROOT/Resources/AppIcon.icns" ] && cp "$ROOT/Resources/AppIcon.icns" "$APP/Contents/Resources/AppIcon.icns"
 
 slices=()
 for arch in $ARCHS; do

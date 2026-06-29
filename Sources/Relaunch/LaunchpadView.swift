@@ -7,6 +7,7 @@ struct LaunchpadView: View {
     @ObservedObject var model: LaunchpadModel
     let onLaunch: (AppInfo) -> Void
     let onClose: () -> Void
+    let onOpenSettings: () -> Void
 
     @FocusState private var searchFocused: Bool
     @State private var currentPage: Int? = 0
@@ -76,18 +77,33 @@ struct LaunchpadView: View {
     // MARK: - Search bar
 
     private var searchBar: some View {
-        HStack(spacing: 8) {
-            Image(systemName: "magnifyingglass").foregroundStyle(.white.opacity(0.7))
-            TextField("搜索", text: $model.query)
-                .textFieldStyle(.plain)
-                .font(.title3)
-                .foregroundStyle(.white)
-                .focused($searchFocused)
+        ZStack {
+            HStack(spacing: 8) {
+                Image(systemName: "magnifyingglass").foregroundStyle(.white.opacity(0.7))
+                TextField("搜索", text: $model.query)
+                    .textFieldStyle(.plain)
+                    .font(.title3)
+                    .foregroundStyle(.white)
+                    .focused($searchFocused)
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 9)
+            .frame(maxWidth: 360)
+            .background(.ultraThinMaterial, in: Capsule())
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 9)
-        .frame(maxWidth: 360)
-        .background(.ultraThinMaterial, in: Capsule())
+        .frame(maxWidth: .infinity)
+        // "More" button pinned to the far right of the search row.
+        .overlay(alignment: .trailing) {
+            Button(action: onOpenSettings) {
+                Image(systemName: "ellipsis.circle")
+                    .font(.title2)
+                    .foregroundStyle(.white.opacity(0.85))
+                    .frame(width: 44, height: 44)
+                    .background(.ultraThinMaterial, in: Circle())
+            }
+            .buttonStyle(.plain)
+            .help("设置")
+        }
     }
 
     // MARK: - Grids
