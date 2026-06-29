@@ -69,12 +69,6 @@ final class LaunchpadController: NSObject, NSWindowDelegate {
         w.appearance = NSAppearance(named: .darkAqua)
         w.delegate = self
 
-        let effect = NSVisualEffectView(frame: frame)
-        effect.material = .hudWindow
-        effect.blendingMode = .behindWindow
-        effect.state = .active
-        effect.autoresizingMask = [.width, .height]
-
         let root = LaunchpadView(
             model: model,
             onLaunch: { [weak self] in self?.launch($0) },
@@ -84,12 +78,11 @@ final class LaunchpadController: NSObject, NSWindowDelegate {
                 self?.onOpenSettings?()
             }
         )
-        let host = NSHostingView(rootView: root)
-        host.frame = effect.bounds
-        host.autoresizingMask = [.width, .height]
-        effect.addSubview(host)
-
-        w.contentView = effect
+        // Host the SwiftUI content as the window's contentViewController so it
+        // sits properly in the responder chain — drag-and-drop sources need
+        // this, otherwise taps work but drags silently fail. The blur is now a
+        // SwiftUI background (VisualEffectView) instead of a wrapping NSView.
+        w.contentViewController = NSHostingController(rootView: root)
         window = w
     }
 

@@ -51,6 +51,7 @@ struct LaunchpadView: View {
                               onLaunch: { app in onLaunch(app) })
             }
         }
+        .background(VisualEffectView().ignoresSafeArea())
         .environment(\.colorScheme, .dark)
         .onAppear { searchFocused = true }
         .onChange(of: model.query) { currentPage = 0 }
@@ -167,24 +168,42 @@ struct LaunchpadView: View {
     private func itemCell(_ item: LaunchItem) -> some View {
         cellContent(item)
             .frame(width: cellWidth)
-            .draggable(payload(for: item)) { dragPreview(item) }
-            .dropDestination(for: String.self) { dropped, location in
-                guard let payload = dropped.first else { return false }
-                let zone = zone(for: location, isFolder: item.isFolder)
-                model.performDrop(payload: payload, targetID: item.id, zone: zone)
-                return true
+            .onDrag {
+                NSItemProvider(object: payload(for: item) as NSString)
+            } preview: {
+                dragPreview(item)
             }
+            .onDrop(of: [.text], isTargeted: nil) { providers, location in
+                let zone = zone(for: location, isFolder: item.isFolder)
+                return handleDrop(providers, targetID: item.id, zone: zone)
+            }
+    }
+
+    /// Loads the dragged payload string (async) and applies the drop.
+    private func handleDrop(_ providers: [NSItemProvider], targetID: String, zone: DropZone) -> Bool {
+        guard let provider = providers.first else { return false }
+        provider.loadObject(ofClass: NSString.self) { object, _ in
+            guard let payload = object as? String else { return }
+            DispatchQueue.main.async {
+                model.performDrop(payload: payload, targetID: targetID, zone: zone)
+            }
+        }
+        return true
     }
 
     @ViewBuilder
     private func cellContent(_ item: LaunchItem) -> some View {
+        // Buttons (not .onTapGesture) so click-to-launch coexists with .onDrag:
+        // a quick click fires the button, press-and-move starts a drag.
         switch item {
         case .app(let path):
             if let app = model.app(path) {
-                appIcon(app).onTapGesture { onLaunch(app) }
+                Button { onLaunch(app) } label: { appIcon(app) }
+                    .buttonStyle(.plain)
             }
         case .folder(let folder):
-            folderIcon(folder).onTapGesture { model.openFolderID = folder.id }
+            Button { model.openFolderID = folder.id } label: { folderIcon(folder) }
+                .buttonStyle(.plain)
         }
     }
 
@@ -297,11 +316,12 @@ struct LaunchpadView: View {
             .frame(maxHeight: .infinity)
             .contentShape(Rectangle())
             .onTapGesture { onClose() }
-            .dropDestination(for: String.self) { _, _ in
-                false
-            } isTargeted: { targeted in
-                if targeted { startEdgeFlip(forward: forward) } else { stopEdgeFlip() }
-            }
+            .onDrop(of: [.text], isTargeted: Binding(
+                get: { false },
+                set: { targeted in
+                    if targeted { startEdgeFlip(forward: forward) } else { stopEdgeFlip() }
+                }
+            )) { _ in false }
     }
 
     private func startEdgeFlip(forward: Bool) {
@@ -318,6 +338,18 @@ struct LaunchpadView: View {
 }
 
 // MARK: - Folder overlay
+
+/// Dark blurred desktop background (`NSVisualEffectView` bridged to SwiftUI).
+private struct VisualEffectView: NSViewRepresentable {
+    func makeNSView(context: Context) -> NSVisualEffectView {
+        let view = NSVisualEffectView()
+        view.material = .hudWindow
+        view.blendingMode = .behindWindow
+        view.state = .active
+        return view
+    }
+    func updateNSView(_ nsView: NSVisualEffectView, context: Context) {}
+}
 
 private struct FolderOverlay: View {
     @ObservedObject var model: LaunchpadModel
@@ -367,31 +399,40 @@ private struct FolderOverlay: View {
     }
 
     private func folderApp(_ app: AppInfo, path: String, folderID: String) -> some View {
-        VStack(spacing: 7) {
-            Image(nsImage: app.icon).resizable().interpolation(.high)
-                .frame(width: 70, height: 70)
-            Text(app.name).font(.system(size: 12)).foregroundStyle(.white)
-                .lineLimit(1).truncationMode(.tail)
+        Button { onLaunch(app) } label: {
+            VStack(spacing: 7) {
+                Image(nsImage: app.icon).resizable().interpolation(.high)
+                    .frame(width: 70, height: 70)
+                Text(app.name).font(.system(size: 12)).foregroundStyle(.white)
+                    .lineLimit(1).truncationMode(.tail)
+            }
+            .frame(width: 108)
+            .padding(.vertical, 6)
+            .contentShape(Rectangle())
         }
-        .frame(width: 108)
-        .padding(.vertical, 6)
-        .contentShape(Rectangle())
-        .onTapGesture { onLaunch(app) }
+        .buttonStyle(.plain)
         .contextMenu {
             Button("移出文件夹") { model.removeFromFolder(folderID, path) }
         }
-        .draggable("F|" + folderID + "|" + path) {
+        .onDrag {
+            NSItemProvider(object: ("F|" + folderID + "|" + path) as NSString)
+        } preview: {
             Image(nsImage: app.icon).resizable().frame(width: 70, height: 70)
         }
-        .dropDestination(for: String.self) { dropped, location in
-            guard let payload = dropped.first else { return false }
+        .onDrop(of: [.text], isTargeted: nil) { providers, location in
+            guard let provider = providers.first else { return false }
             let zone: DropZone = location.x < 54 ? .before : .after
-            // Reorder within the folder only when the source is from this folder.
-            if payload.hasPrefix("F|" + folderID + "|") {
-                let src = String(payload.dropFirst(("F|" + folderID + "|").count))
-                model.reorderInFolder(folderID, move: src, target: path, zone: zone)
-            } else {
-                model.addToFolder(folderID, payload: payload)
+            provider.loadObject(ofClass: NSString.self) { object, _ in
+                guard let payload = object as? String else { return }
+                DispatchQueue.main.async {
+                    // Reorder within the folder only when the source is from it.
+                    if payload.hasPrefix("F|" + folderID + "|") {
+                        let src = String(payload.dropFirst(("F|" + folderID + "|").count))
+                        model.reorderInFolder(folderID, move: src, target: path, zone: zone)
+                    } else {
+                        model.addToFolder(folderID, payload: payload)
+                    }
+                }
             }
             return true
         }
