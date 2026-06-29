@@ -25,7 +25,7 @@ private typealias MTContactCallback =
 private final class GestureState {
     var onTrigger: (() -> Void)?
     var tracking = false
-    var startSpread: Float = 0
+    var startSpread: Float = 0   // widest spread seen this contact
     var lastFire: Double = 0
 }
 private let state = GestureState()
@@ -72,8 +72,14 @@ private func contactFrameCallback(_ device: Int32,
     // Keep the baseline at the widest spread seen so an outward move re-arms it.
     if spread > state.startSpread { state.startSpread = spread }
 
-    // Fire on a decisive inward pinch.
-    if state.startSpread > 0.16, spread < state.startSpread * 0.55 {
+    // Fire on a decisive inward pinch. Two independent conditions so the
+    // gesture is recognized regardless of how wide the fingers started:
+    //   1. relative: shrank to less than half the widest spread
+    //   2. absolute: moved inward a clear amount AND fingers ended close together
+    let drop = state.startSpread - spread
+    let relative = state.startSpread > 0.14 && spread < state.startSpread * 0.5
+    let absolute = drop > 0.045 && spread < 0.13
+    if relative || absolute {
         if timestamp - state.lastFire > 1.0 {
             state.lastFire = timestamp
             state.tracking = false

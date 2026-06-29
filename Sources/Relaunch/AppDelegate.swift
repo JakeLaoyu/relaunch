@@ -19,9 +19,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if defaults.object(forKey: gestureKey) == nil { defaults.set(true, forKey: gestureKey) }
         if defaults.object(forKey: hotkeyKey) == nil { defaults.set(true, forKey: hotkeyKey) }
 
-        // Global hotkey (⌃⌥L by default).
+        // Global hotkey (⌃⌥L by default). If registration fails (e.g. the
+        // combo is already taken), reflect the real disabled state.
         hotkey = HotkeyManager { [weak self] in self?.launchpad.toggle() }
-        if defaults.bool(forKey: hotkeyKey) { hotkey.register() }
+        if defaults.bool(forKey: hotkeyKey), !hotkey.register() {
+            defaults.set(false, forKey: hotkeyKey)
+        }
 
         // Trackpad gesture: thumb + three/four-finger pinch-in.
         gesture = MultitouchGesture { [weak self] in self?.launchpad.show() }
@@ -45,7 +48,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func setHotkey(_ on: Bool) {
-        defaults.set(on, forKey: hotkeyKey)
-        if on { hotkey.register() } else { hotkey.unregister() }
+        if on {
+            // Only persist "enabled" if registration actually succeeded.
+            let ok = hotkey.register()
+            defaults.set(ok, forKey: hotkeyKey)
+        } else {
+            hotkey.unregister()
+            defaults.set(false, forKey: hotkeyKey)
+        }
     }
 }
