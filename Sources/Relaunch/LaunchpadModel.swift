@@ -170,7 +170,10 @@ final class LaunchpadModel: ObservableObject {
 
     /// Core drop handler for the top-level grid.
     func performDrop(payload: String, targetID: String, zone: DropZone) {
-        if payload == topPayload(forID: targetID) && zone == .onto { return }
+        // Dropping an item onto itself is a no-op in any zone. (For .before/
+        // .after this also prevents removing the target as the moving item and
+        // then re-inserting it at the end of the layout.)
+        if payload == topPayload(forID: targetID) { return }
         let p = payload.components(separatedBy: "|")
         guard let kind = p.first else { return }
 
