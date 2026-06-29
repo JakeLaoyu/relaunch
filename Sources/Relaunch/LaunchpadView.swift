@@ -31,9 +31,9 @@ struct LaunchpadView: View {
     /// Highlight behind a hovered icon so it's clear the icon is the click
     /// target (launches the app), versus empty space (closes Relaunch).
     private func hoverHighlight(_ hovering: Bool) -> some View {
-        RoundedRectangle(cornerRadius: 20)
+        RoundedRectangle(cornerRadius: 18)
             .fill(.white.opacity(hovering ? 0.14 : 0))
-            .padding(6)
+            .padding(4)
     }
 
     private func setHover(_ id: String, _ hovering: Bool) {
@@ -48,6 +48,11 @@ struct LaunchpadView: View {
     // Columns fill the available width; row height scales with the icon size.
     private var cellH: CGFloat { model.iconSize + 64 }
     private func cellW(_ size: CGSize) -> CGFloat { size.width / CGFloat(columns) }
+
+    // Compact hover/click target around the icon (not the whole wide cell), so
+    // the gaps between icons close Relaunch rather than launching an app.
+    private var hitWidth: CGFloat { model.iconSize + 44 }
+    private var hitHeight: CGFloat { model.iconSize + 42 }
     private func gridOrigin(_ size: CGSize) -> CGPoint { CGPoint(x: 0, y: 8) }
 
     private var pages: [[LaunchItem]] { paginate(model.items) }
@@ -177,10 +182,11 @@ struct LaunchpadView: View {
                 let col = slot % columns, row = slot / columns
                 let hovering = hoverID == item.id && dragID == nil
                 cellView(item)
-                    .frame(width: cw, height: cellH)
+                    .frame(width: hitWidth, height: hitHeight)
                     .background(hoverHighlight(hovering))
                     .scaleEffect(item.id == folderTargetID ? 1.14 : (hovering ? 1.06 : 1))
                     .onHover { setHover(item.id, $0) }
+                    .frame(width: cw, height: cellH)
                     .position(x: origin.x + cw * (CGFloat(col) + 0.5),
                               y: origin.y + cellH * (CGFloat(row) + 0.5))
                     .animation(.spring(response: 0.3, dampingFraction: 0.72), value: slot)
@@ -254,9 +260,10 @@ struct LaunchpadView: View {
         let idx = row * columns + col
         let items = currentPageItems
         guard idx < items.count else { return nil }
-        // Only count presses near the icon, so gaps still close the Launchpad.
+        // Only count presses on the compact icon target, so the gaps between
+        // icons still close the Launchpad.
         let cx = cw * (CGFloat(col) + 0.5), cy = cellH * (CGFloat(row) + 0.5)
-        guard abs(lx - cx) < cw * 0.46, abs(ly - cy) < cellH * 0.48 else { return nil }
+        guard abs(lx - cx) < hitWidth / 2, abs(ly - cy) < hitHeight / 2 else { return nil }
         return items[idx].id
     }
 
@@ -368,8 +375,10 @@ struct LaunchpadView: View {
                 ForEach(results) { app in
                     let hovering = hoverID == app.id
                     appIcon(app)
+                        .frame(width: hitWidth, height: hitHeight)
                         .background(hoverHighlight(hovering))
                         .scaleEffect(hovering ? 1.06 : 1)
+                        .contentShape(Rectangle())
                         .onHover { setHover(app.id, $0) }
                         .animation(.easeOut(duration: 0.12), value: hovering)
                         .onTapGesture { onLaunch(app) }
@@ -548,11 +557,12 @@ private struct FolderOverlay: View {
                 if let app = model.app(path) {
                     let hovering = hoverHL == path && dragPath == nil
                     folderIcon(app, path: path)
-                        .frame(width: cellW, height: cellH)
+                        .frame(width: 98, height: 98)
                         .background(RoundedRectangle(cornerRadius: 18)
-                            .fill(.white.opacity(hovering ? 0.14 : 0)).padding(6))
+                            .fill(.white.opacity(hovering ? 0.14 : 0)).padding(4))
                         .scaleEffect(hovering ? 1.06 : 1)
                         .onHover { if $0 { hoverHL = path } else if hoverHL == path { hoverHL = nil } }
+                        .frame(width: cellW, height: cellH)
                         .position(x: cellW * (CGFloat(col) + 0.5), y: cellH * (CGFloat(row) + 0.5))
                         .animation(.spring(response: 0.3, dampingFraction: 0.72), value: slot)
                         .animation(.easeOut(duration: 0.12), value: hovering)
@@ -621,7 +631,7 @@ private struct FolderOverlay: View {
         let idx = row * columns + col
         guard idx < folder.appPaths.count else { return nil }
         let cx = cellW * (CGFloat(col) + 0.5), cy = cellH * (CGFloat(row) + 0.5)
-        guard abs(lx - cx) < cellW * 0.46, abs(ly - cy) < cellH * 0.48 else { return nil }
+        guard abs(lx - cx) < 49, abs(ly - cy) < 49 else { return nil }   // compact icon target
         return folder.appPaths[idx]
     }
 
