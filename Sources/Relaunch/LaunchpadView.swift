@@ -453,9 +453,16 @@ private struct FolderOverlay: View {
     @State private var dragPath: String?
     @State private var dragPoint: CGPoint = .zero
     @State private var panelFrame: CGRect = .zero
-    @State private var cellFrames: [String: CGRect] = [:]
+    @State private var gridFrame: CGRect = .zero
+    @State private var gapSlot = 0
+    @State private var lastHoverSlot = 0
+    @State private var hoverPath: String?
+    @State private var pressPath: String?
+    @State private var pressClassified = false
 
     private let columns = 6
+    private let cellW: CGFloat = 115
+    private let cellH: CGFloat = 106
 
     var body: some View {
         ZStack {
@@ -476,15 +483,7 @@ private struct FolderOverlay: View {
                         .onSubmit { commitName() }
                         .onChange(of: nameFocused) { if !nameFocused { commitName() } }
 
-                    LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 18),
-                                             count: columns), spacing: 22) {
-                        ForEach(folder.appPaths, id: \.self) { path in
-                            if let app = model.app(path) {
-                                folderApp(app, path: path)
-                                    .opacity(path == dragPath ? 0 : 1)
-                            }
-                        }
-                    }
+                    folderGrid(folder)
                 }
                 .padding(34)
                 .frame(maxWidth: 760)
@@ -501,6 +500,7 @@ private struct FolderOverlay: View {
             if let path = dragPath, let app = model.app(path) {
                 Image(nsImage: app.icon).resizable().interpolation(.high)
                     .frame(width: 70, height: 70)
+                    .scaleEffect(1.12)
                     .shadow(color: .black.opacity(0.35), radius: 10, y: 5)
                     .position(dragPoint)
                     .allowsHitTesting(false)
@@ -510,52 +510,104 @@ private struct FolderOverlay: View {
         .environment(\.colorScheme, .dark)
     }
 
-    private func folderApp(_ app: AppInfo, path: String) -> some View {
+    private func folderGrid(_ folder: Folder) -> some View {
+        let all = folder.appPaths
+        let rows = max(1, (all.count + columns - 1) / columns)
+        let dragging = dragPath != nil
+        let display = dragging ? all.filter { $0 != dragPath } : all
+        let gap = dragging ? gapSlot : -1
+        return ZStack(alignment: .topLeading) {
+            ForEach(Array(display.enumerated()), id: \.element) { idx, path in
+                let slot = (gap >= 0 && idx >= gap) ? idx + 1 : idx
+                let col = slot % columns, row = slot / columns
+                if let app = model.app(path) {
+                    folderIcon(app, path: path)
+                        .frame(width: cellW, height: cellH)
+                        .position(x: cellW * (CGFloat(col) + 0.5), y: cellH * (CGFloat(row) + 0.5))
+                        .animation(.spring(response: 0.3, dampingFraction: 0.72), value: slot)
+                }
+            }
+        }
+        .frame(width: CGFloat(columns) * cellW, height: CGFloat(rows) * cellH)
+        .background(GeometryReader { g -> Color in
+            let f = g.frame(in: .named("folderRoot"))
+            DispatchQueue.main.async { gridFrame = f }
+            return Color.clear
+        })
+        .contentShape(Rectangle())
+        .gesture(folderDrag(folder))
+    }
+
+    private func folderIcon(_ app: AppInfo, path: String) -> some View {
         VStack(spacing: 7) {
             Image(nsImage: app.icon).resizable().interpolation(.high)
                 .frame(width: 70, height: 70)
             Text(app.name).font(.system(size: 12)).foregroundStyle(.white)
                 .lineLimit(1).truncationMode(.tail)
         }
-        .frame(width: 108)
-        .padding(.vertical, 6)
-        .contentShape(Rectangle())
-        .background(GeometryReader { g -> Color in
-            let f = g.frame(in: .named("folderRoot"))
-            DispatchQueue.main.async { cellFrames[path] = f }
-            return Color.clear
-        })
         .contextMenu {
             Button("移出文件夹") { model.removeFromFolder(folderID, path) }
         }
-        .gesture(
-            DragGesture(minimumDistance: 0, coordinateSpace: .named("folderRoot"))
-                .onChanged { value in
+    }
+
+    private func folderDrag(_ folder: Folder) -> some Gesture {
+        DragGesture(minimumDistance: 0, coordinateSpace: .named("folderRoot"))
+            .onChanged { value in
+                if !pressClassified {
+                    pressClassified = true
+                    pressPath = hitFolder(value.startLocation, folder: folder)
+                }
+                guard let path = pressPath else { return }
+                let moved = abs(value.translation.width) > 6 || abs(value.translation.height) > 6
+                if dragPath == nil && moved {
+                    dragPath = path
+                    let slot = folder.appPaths.firstIndex(of: path) ?? 0
+                    gapSlot = slot; lastHoverSlot = slot; hoverPath = nil
+                }
+                if dragPath != nil { dragPoint = value.location; folderMove(value.location, folder: folder) }
+            }
+            .onEnded { value in
+                defer { pressPath = nil; pressClassified = false }
+                guard let path = pressPath else { return }
+                if dragPath == nil {
                     let moved = abs(value.translation.width) > 6 || abs(value.translation.height) > 6
-                    if dragPath == nil && moved { dragPath = path }
-                    if dragPath == path { dragPoint = value.location }
+                    if !moved, let app = model.app(path) { onLaunch(app) }
+                } else if !panelFrame.contains(value.location) {
+                    model.removeFromFolder(folderID, path)   // dropped outside → leave folder
+                    model.openFolderID = nil
+                } else {
+                    model.moveInFolder(folderID, move: path, toIndex: gapSlot)
                 }
-                .onEnded { value in
-                    defer { dragPath = nil }
-                    if dragPath == nil {
-                        // Launch only on a clean click, never after any drag.
-                        let moved = abs(value.translation.width) > 6 || abs(value.translation.height) > 6
-                        if !moved { onLaunch(app) }
-                        return
-                    }
-                    if !panelFrame.contains(value.location) {
-                        // Released outside the panel → take the app out.
-                        model.removeFromFolder(folderID, path)
-                        model.openFolderID = nil
-                    } else if let target = cellFrames.first(where: {
-                        $0.key != path && $0.value.contains(value.location)
-                    }) {
-                        // Released over another icon → reorder within the folder.
-                        let zone: DropZone = value.location.x < target.value.midX ? .before : .after
-                        model.reorderInFolder(folderID, move: path, target: target.key, zone: zone)
-                    }
-                }
-        )
+                dragPath = nil; hoverPath = nil
+            }
+    }
+
+    private func hitFolder(_ point: CGPoint, folder: Folder) -> String? {
+        let lx = point.x - gridFrame.minX, ly = point.y - gridFrame.minY
+        guard lx >= 0, ly >= 0 else { return nil }
+        let col = min(max(Int(lx / cellW), 0), columns - 1)
+        let row = max(Int(ly / cellH), 0)
+        let idx = row * columns + col
+        guard idx < folder.appPaths.count else { return nil }
+        let cx = cellW * (CGFloat(col) + 0.5), cy = cellH * (CGFloat(row) + 0.5)
+        guard abs(lx - cx) < cellW * 0.46, abs(ly - cy) < cellH * 0.48 else { return nil }
+        return folder.appPaths[idx]
+    }
+
+    private func folderMove(_ point: CGPoint, folder: Folder) {
+        let lx = point.x - gridFrame.minX, ly = point.y - gridFrame.minY
+        let flow = folder.appPaths.filter { $0 != dragPath }
+        let col = min(max(Int(lx / cellW), 0), columns - 1)
+        let row = max(Int(ly / cellH), 0)
+        let s = min(max(row * columns + col, 0), flow.count)
+        if s == gapSlot { hoverPath = nil; return }
+        let flowIdx = s < gapSlot ? s : s - 1
+        guard flowIdx >= 0, flowIdx < flow.count else { hoverPath = nil; return }
+        let hover = flow[flowIdx]
+        guard hover != hoverPath else { return }
+        withAnimation(.spring(response: 0.3, dampingFraction: 0.72)) { gapSlot = lastHoverSlot }
+        lastHoverSlot = s
+        hoverPath = hover
     }
 
     private func commitName() {

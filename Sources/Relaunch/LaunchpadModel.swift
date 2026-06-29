@@ -164,14 +164,13 @@ final class LaunchpadModel: ObservableObject {
         save()
     }
 
-    func reorderInFolder(_ folderID: String, move path: String, target: String, zone: DropZone) {
-        guard path != target,
-              let i = items.firstIndex(where: { $0.id == "folder:" + folderID }),
+    /// Move an app within a folder to an absolute index among the remaining apps.
+    func moveInFolder(_ folderID: String, move path: String, toIndex index: Int) {
+        guard let i = items.firstIndex(where: { $0.id == "folder:" + folderID }),
               case .folder(var f) = items[i] else { return }
         f.appPaths.removeAll { $0 == path }
-        guard var ti = f.appPaths.firstIndex(of: target) else { return }
-        if zone == .after { ti += 1 }
-        f.appPaths.insert(path, at: min(ti, f.appPaths.count))
+        let target = Swift.max(0, Swift.min(index, f.appPaths.count))
+        f.appPaths.insert(path, at: target)
         items[i] = .folder(f)
         save()
     }
