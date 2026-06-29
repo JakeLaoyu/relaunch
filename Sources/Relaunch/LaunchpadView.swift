@@ -208,10 +208,13 @@ struct LaunchpadView: View {
             .onEnded { value in
                 defer { pressItemID = nil; pressClassified = false }
                 if let item = pressItemID {
-                    if dragID == nil {
-                        tap(item)                  // click without dragging
-                    } else {
+                    if dragID != nil {
                         handleDragEnd()
+                    } else {
+                        // Launch only on a clean click — any movement (even a
+                        // fast flick onChanged didn't latch as a drag) is not a tap.
+                        let moved = abs(value.translation.width) > 6 || abs(value.translation.height) > 6
+                        if !moved { tap(item) }
                     }
                 } else {
                     let tx = value.translation.width
@@ -534,7 +537,12 @@ private struct FolderOverlay: View {
                 }
                 .onEnded { value in
                     defer { dragPath = nil }
-                    if dragPath == nil { onLaunch(app); return }   // tap
+                    if dragPath == nil {
+                        // Launch only on a clean click, never after any drag.
+                        let moved = abs(value.translation.width) > 6 || abs(value.translation.height) > 6
+                        if !moved { onLaunch(app) }
+                        return
+                    }
                     if !panelFrame.contains(value.location) {
                         // Released outside the panel → take the app out.
                         model.removeFromFolder(folderID, path)
