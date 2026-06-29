@@ -18,13 +18,29 @@ struct LaunchpadView: View {
     @State private var folderTargetID: String?  // icon highlighted to form a folder
     @State private var pressItemID: String?     // item under the initial press
     @State private var pressClassified = false
-    @State private var dwellTargetID: String?
+    @State private var gapSlot: Int = 0         // page slot the dragged item will drop into
+    @State private var lastHoverSlot: Int = 0
+    @State private var hoverItemID: String?     // icon currently under the cursor
     @State private var dwellTimer: Timer?
     @State private var edgeTimer: Timer?
+
+    private func flowItems() -> [LaunchItem] {
+        currentPageItems.filter { $0.id != dragID }
+    }
 
     private let columns = 7
     private let rows = 5
     private var pageSize: Int { columns * rows }
+
+    // Fixed cell size keeps the grid tight and consistent (no stretching to
+    // fill the height). The block is centered horizontally and top-aligned.
+    private let cellW: CGFloat = 126
+    private let cellH: CGFloat = 112
+
+    private func gridOrigin(_ size: CGSize) -> CGPoint {
+        let gridWidth = CGFloat(columns) * cellW
+        return CGPoint(x: max(0, (size.width - gridWidth) / 2), y: 8)
+    }
 
     private var pages: [[LaunchItem]] { paginate(model.items) }
     private var currentPageItems: [LaunchItem] {
@@ -115,19 +131,15 @@ struct LaunchpadView: View {
     private var pagedGrid: some View {
         GeometryReader { geo in
             ZStack(alignment: .topLeading) {
-                HStack(spacing: 0) {
-                    ForEach(Array(pages.enumerated()), id: \.offset) { _, pageItems in
-                        pageGridView(pageItems, size: geo.size)
-                            .frame(width: geo.size.width, height: geo.size.height)
-                    }
-                }
-                .offset(x: -CGFloat(currentPage) * geo.size.width)
-                .animation(.easeInOut(duration: 0.25), value: currentPage)
+                // Only the current page is rendered (no multi-page spill).
+                pageGridView(currentPageItems, size: geo.size)
+                    .id(currentPage)
+                    .transition(.opacity)
 
                 // Floating dragged icon follows the cursor.
                 if let id = dragID, let item = model.items.first(where: { $0.id == id }) {
                     cellView(item)
-                        .frame(width: cellW(geo.size), height: cellH(geo.size))
+                        .frame(width: cellW, height: cellH)
                         .scaleEffect(1.18)
                         .shadow(color: .black.opacity(0.35), radius: 12, y: 6)
                         .position(dragPoint)
@@ -136,33 +148,33 @@ struct LaunchpadView: View {
             }
             .frame(width: geo.size.width, height: geo.size.height)
             .contentShape(Rectangle())
+            .clipped()
             .coordinateSpace(name: "gridRoot")
             .gesture(gridGesture(size: geo.size))
         }
     }
 
     private func pageGridView(_ pageItems: [LaunchItem], size: CGSize) -> some View {
-        let cw = cellW(size), ch = cellH(size)
+        let origin = gridOrigin(size)
+        // While dragging, the dragged icon floats (out of the flow) and the
+        // remaining icons reflow around a gap at `gapSlot`.
+        let dragging = dragID != nil
+        let display = dragging ? flowItems() : pageItems
+        let gap = dragging ? gapSlot : -1
         return ZStack(alignment: .topLeading) {
-            ForEach(Array(pageItems.enumerated()), id: \.element.id) { idx, item in
-                let col = idx % columns, row = idx / columns
-                Group {
-                    if item.id == dragID {
-                        Color.clear.frame(width: cw, height: ch)   // gap left by the dragged icon
-                    } else {
-                        cellView(item)
-                            .frame(width: cw, height: ch)
-                            .scaleEffect(item.id == folderTargetID ? 1.14 : 1)
-                    }
-                }
-                .position(x: cw * (CGFloat(col) + 0.5), y: ch * (CGFloat(row) + 0.5))
-                .animation(.spring(response: 0.3, dampingFraction: 0.72), value: idx)
+            ForEach(Array(display.enumerated()), id: \.element.id) { idx, item in
+                let slot = (gap >= 0 && idx >= gap) ? idx + 1 : idx
+                let col = slot % columns, row = slot / columns
+                cellView(item)
+                    .frame(width: cellW, height: cellH)
+                    .scaleEffect(item.id == folderTargetID ? 1.14 : 1)
+                    .position(x: origin.x + cellW * (CGFloat(col) + 0.5),
+                              y: origin.y + cellH * (CGFloat(row) + 0.5))
+                    .animation(.spring(response: 0.3, dampingFraction: 0.72), value: slot)
             }
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
-
-    private func cellW(_ size: CGSize) -> CGFloat { size.width / CGFloat(columns) }
-    private func cellH(_ size: CGSize) -> CGFloat { size.height / CGFloat(rows) }
 
     @ViewBuilder
     private func cellView(_ item: LaunchItem) -> some View {
@@ -185,7 +197,13 @@ struct LaunchpadView: View {
                 }
                 guard let item = pressItemID else { return }   // background drag
                 let moved = abs(value.translation.width) > 6 || abs(value.translation.height) > 6
-                if dragID == nil && moved { dragID = item }
+                if dragID == nil && moved {
+                    dragID = item
+                    let slot = currentPageItems.firstIndex(where: { $0.id == item }) ?? 0
+                    gapSlot = slot
+                    lastHoverSlot = slot
+                    hoverItemID = nil
+                }
                 if dragID != nil {
                     dragPoint = value.location
                     handleDragMove(value.location, size: size)
@@ -209,16 +227,18 @@ struct LaunchpadView: View {
     }
 
     private func hitTest(_ point: CGPoint, size: CGSize) -> String? {
-        guard point.x >= 0, point.y >= 0, point.x <= size.width, point.y <= size.height else { return nil }
-        let cw = cellW(size), ch = cellH(size)
-        let col = min(max(Int(point.x / cw), 0), columns - 1)
-        let row = min(max(Int(point.y / ch), 0), rows - 1)
+        let origin = gridOrigin(size)
+        let lx = point.x - origin.x, ly = point.y - origin.y
+        guard lx >= 0, ly >= 0,
+              lx <= CGFloat(columns) * cellW, ly <= CGFloat(rows) * cellH else { return nil }
+        let col = min(max(Int(lx / cellW), 0), columns - 1)
+        let row = min(max(Int(ly / cellH), 0), rows - 1)
         let idx = row * columns + col
         let items = currentPageItems
         guard idx < items.count else { return nil }
         // Only count presses near the icon, so gaps still close the Launchpad.
-        let cx = cw * (CGFloat(col) + 0.5), cy = ch * (CGFloat(row) + 0.5)
-        guard abs(point.x - cx) < cw * 0.42, abs(point.y - cy) < ch * 0.46 else { return nil }
+        let cx = cellW * (CGFloat(col) + 0.5), cy = cellH * (CGFloat(row) + 0.5)
+        guard abs(lx - cx) < cellW * 0.46, abs(ly - cy) < cellH * 0.48 else { return nil }
         return items[idx].id
     }
 
@@ -232,11 +252,8 @@ struct LaunchpadView: View {
 
     private func handleDragMove(_ point: CGPoint, size: CGSize) {
         guard let dragID else { return }
-        let cw = cellW(size), ch = cellH(size)
-        let col = min(max(Int(point.x / cw), 0), columns - 1)
-        let row = min(max(Int(point.y / ch), 0), rows - 1)
-        let items = currentPageItems
-        let localIdx = min(row * columns + col, max(items.count - 1, 0))
+        let origin = gridOrigin(size)
+        let lx = point.x - origin.x, ly = point.y - origin.y
 
         // Edge → flip page.
         let edge: CGFloat = 64
@@ -244,27 +261,27 @@ struct LaunchpadView: View {
         else if point.x > size.width - edge { startEdgeFlip(forward: true) }
         else { stopEdgeFlip() }
 
-        guard localIdx < items.count else { cancelDwell(); return }
-        let target = items[localIdx]
-        let cx = cw * (CGFloat(col) + 0.5), cy = ch * (CGFloat(row) + 0.5)
-        let overCenter = abs(point.x - cx) < cw * 0.30 && abs(point.y - cy) < ch * 0.32
-        let draggingIsApp = dragID.hasPrefix("app:")
+        let flow = flowItems()
+        let col = min(max(Int(lx / cellW), 0), columns - 1)
+        let row = min(max(Int(ly / cellH), 0), rows - 1)
+        let s = min(max(row * columns + col, 0), flow.count)
 
-        if overCenter, target.id != dragID, draggingIsApp {
-            // Hover over another icon's center → after a short dwell, form a folder.
-            if dwellTargetID != target.id {
-                dwellTargetID = target.id
-                scheduleDwell(target.id)
-            }
-        } else {
-            cancelDwell()
-            if folderTargetID == nil {
-                let globalIdx = currentPage * pageSize + localIdx
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.72)) {
-                    model.moveItem(id: dragID, toIndex: globalIdx)
-                }
-            }
+        if s == gapSlot {                      // cursor over the gap itself
+            hoverItemID = nil; cancelDwell(); return
         }
+        let flowIdx = s < gapSlot ? s : s - 1
+        guard flowIdx >= 0, flowIdx < flow.count else { hoverItemID = nil; cancelDwell(); return }
+
+        let hover = flow[flowIdx]
+        guard hover.id != hoverItemID else { return }   // same icon — keep dwelling
+
+        // Moved onto a new icon: the one we just left slides into the trailing
+        // gap (reorder), and we begin a fresh dwell on the new icon.
+        withAnimation(.spring(response: 0.3, dampingFraction: 0.72)) { gapSlot = lastHoverSlot }
+        lastHoverSlot = s
+        hoverItemID = hover.id
+        folderTargetID = nil
+        if dragID.hasPrefix("app:") { scheduleDwell(hover.id) }   // only apps form folders
     }
 
     private func handleDragEnd() {
@@ -272,32 +289,47 @@ struct LaunchpadView: View {
         dwellTimer?.invalidate(); dwellTimer = nil
         if let target = folderTargetID, let src = dragID {
             withAnimation { model.makeOrJoinFolder(draggingID: src, targetID: target) }
-        } else {
+        } else if let src = dragID {
+            let flow = flowItems()
+            let beforeID = gapSlot < flow.count ? flow[gapSlot].id : firstIDAfterCurrentPage()
+            withAnimation { model.moveItem(id: src, before: beforeID) }
             model.commitLayout()
         }
         dragID = nil
         folderTargetID = nil
-        dwellTargetID = nil
+        hoverItemID = nil
+    }
+
+    /// The first item of the next page (nil if this is the last page) — used as
+    /// the insertion anchor when the gap is at the end of the current page.
+    private func firstIDAfterCurrentPage() -> String? {
+        let p = pages
+        return p.indices.contains(currentPage + 1) ? p[currentPage + 1].first?.id : nil
     }
 
     private func scheduleDwell(_ id: String) {
         dwellTimer?.invalidate()
-        dwellTimer = Timer.scheduledTimer(withTimeInterval: 0.35, repeats: false) { _ in
-            withAnimation { folderTargetID = id }
+        // .common mode so it fires while the mouse is held (event-tracking mode).
+        let timer = Timer(timeInterval: 0.35, repeats: false) { _ in
+            if hoverItemID == id { withAnimation { folderTargetID = id } }
         }
+        RunLoop.main.add(timer, forMode: .common)
+        dwellTimer = timer
     }
 
     private func cancelDwell() {
         dwellTimer?.invalidate(); dwellTimer = nil
-        dwellTargetID = nil
         if folderTargetID != nil { withAnimation { folderTargetID = nil } }
     }
 
     private func startEdgeFlip(forward: Bool) {
         guard dragID != nil, edgeTimer == nil else { return }
-        edgeTimer = Timer.scheduledTimer(withTimeInterval: 0.7, repeats: true) { _ in
+        // .common mode so it fires during the drag (event-tracking run loop).
+        let timer = Timer(timeInterval: 0.7, repeats: true) { _ in
             flipDuringDrag(forward: forward)
         }
+        RunLoop.main.add(timer, forMode: .common)
+        edgeTimer = timer
     }
 
     private func stopEdgeFlip() {
@@ -305,13 +337,11 @@ struct LaunchpadView: View {
     }
 
     private func flipDuringDrag(forward: Bool) {
-        let pageCount = pages.count
         let next = currentPage + (forward ? 1 : -1)
-        guard next >= 0, next < pageCount, let id = dragID else { return }
-        withAnimation(.easeInOut) {
-            currentPage = next
-            model.moveItem(id: id, toIndex: next * pageSize)   // carry the icon to the new page
-        }
+        guard next >= 0, next < pages.count, dragID != nil else { return }
+        withAnimation(.easeInOut) { currentPage = next }
+        // Reset the gap to the start of the new page; the icon stays floating.
+        gapSlot = 0; lastHoverSlot = 0; hoverItemID = nil; folderTargetID = nil
     }
 
     // MARK: - Search results
