@@ -22,9 +22,23 @@ struct LaunchpadView: View {
     @State private var hoverItemID: String?     // icon currently under the cursor
     @State private var dwellTimer: Timer?
     @State private var edgeTimer: Timer?
+    @State private var hoverID: String?
 
     private func flowItems() -> [LaunchItem] {
         currentPageItems.filter { $0.id != dragID }
+    }
+
+    /// Highlight behind a hovered icon so it's clear the icon is the click
+    /// target (launches the app), versus empty space (closes Relaunch).
+    private func hoverHighlight(_ hovering: Bool) -> some View {
+        RoundedRectangle(cornerRadius: 20)
+            .fill(.white.opacity(hovering ? 0.14 : 0))
+            .padding(6)
+    }
+
+    private func setHover(_ id: String, _ hovering: Bool) {
+        if hovering { hoverID = id }
+        else if hoverID == id { hoverID = nil }
     }
 
     private var columns: Int { model.columns }
@@ -161,12 +175,16 @@ struct LaunchpadView: View {
             ForEach(Array(display.enumerated()), id: \.element.id) { idx, item in
                 let slot = (gap >= 0 && idx >= gap) ? idx + 1 : idx
                 let col = slot % columns, row = slot / columns
+                let hovering = hoverID == item.id && dragID == nil
                 cellView(item)
                     .frame(width: cw, height: cellH)
-                    .scaleEffect(item.id == folderTargetID ? 1.14 : 1)
+                    .background(hoverHighlight(hovering))
+                    .scaleEffect(item.id == folderTargetID ? 1.14 : (hovering ? 1.06 : 1))
+                    .onHover { setHover(item.id, $0) }
                     .position(x: origin.x + cw * (CGFloat(col) + 0.5),
                               y: origin.y + cellH * (CGFloat(row) + 0.5))
                     .animation(.spring(response: 0.3, dampingFraction: 0.72), value: slot)
+                    .animation(.easeOut(duration: 0.12), value: hovering)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
@@ -348,7 +366,13 @@ struct LaunchpadView: View {
             LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 18), count: columns),
                       spacing: 26) {
                 ForEach(results) { app in
-                    appIcon(app).onTapGesture { onLaunch(app) }
+                    let hovering = hoverID == app.id
+                    appIcon(app)
+                        .background(hoverHighlight(hovering))
+                        .scaleEffect(hovering ? 1.06 : 1)
+                        .onHover { setHover(app.id, $0) }
+                        .animation(.easeOut(duration: 0.12), value: hovering)
+                        .onTapGesture { onLaunch(app) }
                 }
             }
             .padding(.vertical, 12)
@@ -459,6 +483,7 @@ private struct FolderOverlay: View {
     @State private var hoverPath: String?
     @State private var pressPath: String?
     @State private var pressClassified = false
+    @State private var hoverHL: String?
 
     private let columns = 6
     private let cellW: CGFloat = 115
@@ -521,10 +546,16 @@ private struct FolderOverlay: View {
                 let slot = (gap >= 0 && idx >= gap) ? idx + 1 : idx
                 let col = slot % columns, row = slot / columns
                 if let app = model.app(path) {
+                    let hovering = hoverHL == path && dragPath == nil
                     folderIcon(app, path: path)
                         .frame(width: cellW, height: cellH)
+                        .background(RoundedRectangle(cornerRadius: 18)
+                            .fill(.white.opacity(hovering ? 0.14 : 0)).padding(6))
+                        .scaleEffect(hovering ? 1.06 : 1)
+                        .onHover { if $0 { hoverHL = path } else if hoverHL == path { hoverHL = nil } }
                         .position(x: cellW * (CGFloat(col) + 0.5), y: cellH * (CGFloat(row) + 0.5))
                         .animation(.spring(response: 0.3, dampingFraction: 0.72), value: slot)
+                        .animation(.easeOut(duration: 0.12), value: hovering)
                 }
             }
         }
