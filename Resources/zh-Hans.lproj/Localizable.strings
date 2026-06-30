@@ -40,3 +40,4 @@
 "No classic Launchpad data" = "未找到旧版启动台数据";
 "There is no classic Launchpad database to import on this Mac." = "这台 Mac 上没有可导入的旧版启动台数据库。";
 "OK" = "好";
+"Restore Defaults" = "恢复默认";

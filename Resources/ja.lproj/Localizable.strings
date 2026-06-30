@@ -36,3 +36,4 @@
 "No classic Launchpad data" = "旧 Launchpad のデータがありません";
 "There is no classic Launchpad database to import on this Mac." = "この Mac には読み込める旧 Launchpad のデータベースがありません。";
 "OK" = "OK";
+"Restore Defaults" = "デフォルトに戻す";

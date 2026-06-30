@@ -65,8 +65,9 @@ struct SettingsView: View {
                     .onChange(of: gestureEnabled) { actions.setGesture(gestureEnabled) }
                 Toggle("Global shortcut ⌃⌥L", isOn: $hotkeyEnabled)
                     .onChange(of: hotkeyEnabled) { actions.setHotkey(hotkeyEnabled) }
-                LabeledContent("Dock / menu-bar icon", value: "Click to open")
-                    .foregroundStyle(.secondary)
+                LabeledContent("Dock / menu-bar icon") {
+                    Text("Click to open").foregroundStyle(.secondary)
+                }
             }
 
             Section("General") {
@@ -95,11 +96,31 @@ struct SettingsView: View {
             }
 
             Section {
+                Button("Restore Defaults", role: .destructive) { restoreDefaults() }
                 LabeledContent("Relaunch", value: "1.0")
             }
         }
         .formStyle(.grouped)
-        .frame(width: 420, height: 430)
+        .frame(width: 440, height: 620)
         .onAppear { launchAtLogin = actions.isLogin() }
+    }
+
+    private func restoreDefaults() {
+        showDock = true
+        showMenuBar = true
+        gestureEnabled = true
+        hotkeyEnabled = true
+        iconSize = 74
+        columns = 7
+        rows = 5
+        swipeReversed = false
+        // Re-apply (covers values that were already at default, where the
+        // @AppStorage onChange wouldn't fire).
+        actions.setDock(true)
+        actions.setMenuBar(true)
+        actions.setGesture(true)
+        actions.setHotkey(true)
+        actions.reloadLayout()
+        appLanguage = "system"   // relaunches only if the language actually changed
     }
 }

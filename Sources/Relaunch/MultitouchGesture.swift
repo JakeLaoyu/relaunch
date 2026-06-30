@@ -48,8 +48,9 @@ private func contactFrameCallback(_ device: Int32,
     }
 
     let count = xs.count
-    // Thumb + three fingers == 4; allow 5 for slightly sloppy grips.
-    guard count == 4 || count == 5 else {
+    // Accept 3–5 contacts: the classic gesture is thumb + three fingers, but
+    // trackpads often report only 3 (a finger merges or the thumb reads weak).
+    guard count >= 3, count <= 5 else {
         state.tracking = false
         return 0
     }
@@ -79,7 +80,7 @@ private func contactFrameCallback(_ device: Int32,
     // A four-finger *swipe* translates without converging, so spread stays
     // roughly constant and none of these conditions are met.
     let drop = state.startSpread - spread
-    if state.startSpread > 0.20, drop > 0.07, spread < state.startSpread * 0.66 {
+    if state.startSpread > 0.16, drop > 0.06, spread < state.startSpread * 0.7 {
         if timestamp - state.lastFire > 1.0 {
             state.lastFire = timestamp
             state.tracking = false
