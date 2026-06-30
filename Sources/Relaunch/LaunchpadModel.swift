@@ -99,6 +99,9 @@ final class LaunchpadModel: ObservableObject {
                 if !self.loaded {
                     if let saved = LayoutStore.loadFromDisk(installed: installed) {
                         self.items = saved
+                        // Append any newly installed apps (sorted by name) and
+                        // persist, so their order is stable across launches.
+                        self.reconcile(installed: installed)
                     } else if let imported = LaunchpadImporter.importLayout(bundleIDToPath: self.bundleMap()) {
                         // First run with no saved layout: inherit the user's
                         // classic Launchpad page order and folders.
@@ -391,8 +394,8 @@ enum LayoutStore {
                 items.append(.app(p)); present.insert(p)
             }
         }
-        // Append apps installed since the layout was saved.
-        for p in installed.subtracting(present) { items.append(.app(p)) }
+        // Newly installed apps are appended by the model's reconcile(), which
+        // orders them by name and persists the result.
         return items
     }
 

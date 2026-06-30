@@ -84,10 +84,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func openSettings() { settingsWindow.show() }
 
-    /// Relaunch the app (used to apply a language change cleanly).
+    /// Relaunch the app (used to apply a language change cleanly). The bundle
+    /// path is passed as an argument ($0), never interpolated into the script,
+    /// so paths with shell metacharacters can't break or inject commands.
     static func relaunch() {
         let path = Bundle.main.bundlePath
-        Process.launchedProcess(launchPath: "/bin/sh", arguments: ["-c", "sleep 0.4; open \"\(path)\""])
+        Process.launchedProcess(launchPath: "/bin/sh",
+                                arguments: ["-c", "sleep 0.4; open \"$0\"", path])
         NSApp.terminate(nil)
     }
 

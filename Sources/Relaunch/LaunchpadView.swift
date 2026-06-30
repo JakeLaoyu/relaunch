@@ -295,6 +295,10 @@ struct LaunchpadView: View {
         if s == gapSlot {                      // cursor over the gap itself
             hoverItemID = nil; cancelDwell(); return
         }
+        if s >= flow.count {                   // trailing empty area → drop at the end
+            withAnimation(.spring(response: 0.3, dampingFraction: 0.72)) { gapSlot = flow.count }
+            lastHoverSlot = flow.count; hoverItemID = nil; cancelDwell(); return
+        }
         let flowIdx = s < gapSlot ? s : s - 1
         guard flowIdx >= 0, flowIdx < flow.count else { hoverItemID = nil; cancelDwell(); return }
 
@@ -642,6 +646,10 @@ private struct FolderOverlay: View {
         let row = max(Int(ly / cellH), 0)
         let s = min(max(row * columns + col, 0), flow.count)
         if s == gapSlot { hoverPath = nil; return }
+        if s >= flow.count {                   // trailing empty area → drop at the end
+            withAnimation(.spring(response: 0.3, dampingFraction: 0.72)) { gapSlot = flow.count }
+            lastHoverSlot = flow.count; hoverPath = nil; return
+        }
         let flowIdx = s < gapSlot ? s : s - 1
         guard flowIdx >= 0, flowIdx < flow.count else { hoverPath = nil; return }
         let hover = flow[flowIdx]
