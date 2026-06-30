@@ -1,0 +1,38 @@
+"Search" = "Rechercher";
+"Settings" = "Réglages";
+"Folder Name" = "Nom du dossier";
+"Remove from Folder" = "Retirer du dossier";
+"Folder" = "Dossier";
+
+"Display" = "Affichage";
+"Show icon in Dock" = "Afficher l’icône dans le Dock";
+"Show icon in menu bar" = "Afficher l’icône dans la barre des menus";
+"Grid" = "Grille";
+"Icon size" = "Taille des icônes";
+"Icons per row: %lld" = "Icônes par ligne : %lld";
+"Rows per page: %lld" = "Lignes par page : %lld";
+"Paging" = "Pagination";
+"Reverse two-finger swipe direction" = "Inverser le sens du balayage à deux doigts";
+"Activation" = "Activation";
+"Trackpad pinch gesture" = "Geste de pincement sur le trackpad";
+"Global shortcut ⌃⌥L" = "Raccourci global ⌃⌥L";
+"Dock / menu-bar icon" = "Icône du Dock / de la barre des menus";
+"Click to open" = "Cliquer pour ouvrir";
+"General" = "Général";
+"Language" = "Langue";
+"System" = "Système";
+"Launch at login" = "Ouvrir à la connexion";
+"Import classic Launchpad layout" = "Importer la disposition du Launchpad classique";
+"Imported %lld items" = "%lld éléments importés";
+"No classic Launchpad data found" = "Aucune donnée du Launchpad classique trouvée";
+"Relaunch Settings" = "Réglages de Relaunch";
+
+"Open Launchpad" = "Ouvrir le Launchpad";
+"Settings…" = "Réglages…";
+"Quit Relaunch" = "Quitter Relaunch";
+
+"Imported classic Launchpad layout" = "Disposition du Launchpad classique importée";
+"Restored page order and folders — %lld items." = "Ordre des pages et dossiers restaurés — %lld éléments.";
+"No classic Launchpad data" = "Aucune donnée du Launchpad classique";
+"There is no classic Launchpad database to import on this Mac." = "Aucune base de données du Launchpad classique à importer sur ce Mac.";
+"OK" = "OK";

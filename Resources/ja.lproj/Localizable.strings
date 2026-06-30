@@ -1,0 +1,38 @@
+"Search" = "検索";
+"Settings" = "設定";
+"Folder Name" = "フォルダ名";
+"Remove from Folder" = "フォルダから取り出す";
+"Folder" = "フォルダ";
+
+"Display" = "表示";
+"Show icon in Dock" = "Dock にアイコンを表示";
+"Show icon in menu bar" = "メニューバーにアイコンを表示";
+"Grid" = "グリッド";
+"Icon size" = "アイコンサイズ";
+"Icons per row: %lld" = "1 行あたりのアイコン数：%lld";
+"Rows per page: %lld" = "1 ページあたりの行数：%lld";
+"Paging" = "ページ送り";
+"Reverse two-finger swipe direction" = "2 本指スワイプの方向を反転";
+"Activation" = "起動方法";
+"Trackpad pinch gesture" = "トラックパッドのピンチジェスチャ";
+"Global shortcut ⌃⌥L" = "グローバルショートカット ⌃⌥L";
+"Dock / menu-bar icon" = "Dock／メニューバーのアイコン";
+"Click to open" = "クリックで開く";
+"General" = "一般";
+"Language" = "言語";
+"System" = "システム";
+"Launch at login" = "ログイン時に起動";
+"Import classic Launchpad layout" = "旧 Launchpad のレイアウトを読み込む";
+"Imported %lld items" = "%lld 項目を読み込みました";
+"No classic Launchpad data found" = "旧 Launchpad のデータが見つかりません";
+"Relaunch Settings" = "Relaunch 設定";
+
+"Open Launchpad" = "Launchpad を開く";
+"Settings…" = "設定…";
+"Quit Relaunch" = "Relaunch を終了";
+
+"Imported classic Launchpad layout" = "旧 Launchpad のレイアウトを読み込みました";
+"Restored page order and folders — %lld items." = "ページ順序とフォルダを復元しました（%lld 項目）。";
+"No classic Launchpad data" = "旧 Launchpad のデータがありません";
+"There is no classic Launchpad database to import on this Mac." = "この Mac には読み込める旧 Launchpad のデータベースがありません。";
+"OK" = "OK";

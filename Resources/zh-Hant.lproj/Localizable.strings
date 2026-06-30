@@ -1,0 +1,38 @@
+"Search" = "搜尋";
+"Settings" = "設定";
+"Folder Name" = "檔案夾名稱";
+"Remove from Folder" = "移出檔案夾";
+"Folder" = "檔案夾";
+
+"Display" = "顯示";
+"Show icon in Dock" = "在 Dock 顯示圖像";
+"Show icon in menu bar" = "在選單列顯示圖像";
+"Grid" = "格線";
+"Icon size" = "圖像大小";
+"Icons per row: %lld" = "每行圖像數：%lld";
+"Rows per page: %lld" = "每頁列數：%lld";
+"Paging" = "翻頁";
+"Reverse two-finger swipe direction" = "反轉雙指滑動方向";
+"Activation" = "喚起方式";
+"Trackpad pinch gesture" = "觸控板捏合手勢";
+"Global shortcut ⌃⌥L" = "全域快速鍵 ⌃⌥L";
+"Dock / menu-bar icon" = "Dock／選單列圖像";
+"Click to open" = "點按即可打開";
+"General" = "一般";
+"Language" = "語言";
+"System" = "系統";
+"Launch at login" = "登入時啟動";
+"Import classic Launchpad layout" = "匯入舊版啟動台分組";
+"Imported %lld items" = "已匯入 %lld 個項目";
+"No classic Launchpad data found" = "找不到舊版啟動台資料";
+"Relaunch Settings" = "Relaunch 設定";
+
+"Open Launchpad" = "打開啟動台";
+"Settings…" = "設定…";
+"Quit Relaunch" = "結束 Relaunch";
+
+"Imported classic Launchpad layout" = "已匯入舊版啟動台分組";
+"Restored page order and folders — %lld items." = "已還原頁面順序與檔案夾分組，共 %lld 個項目。";
+"No classic Launchpad data" = "找不到舊版啟動台資料";
+"There is no classic Launchpad database to import on this Mac." = "這台 Mac 上沒有可匯入的舊版啟動台資料庫。";
+"OK" = "好";

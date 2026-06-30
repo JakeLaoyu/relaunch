@@ -14,6 +14,12 @@ struct SettingsActions {
 }
 
 struct SettingsView: View {
+    // Supported languages (code, native name). Shown sorted by name.
+    static let languages: [(code: String, name: String)] = [
+        ("de", "Deutsch"), ("en", "English"), ("es", "Español"), ("fr", "Français"),
+        ("ja", "日本語"), ("ko", "한국어"), ("zh-Hans", "简体中文"), ("zh-Hant", "繁體中文"),
+    ]
+
     let actions: SettingsActions
 
     @AppStorage("showDock") private var showDock = true
@@ -66,8 +72,12 @@ struct SettingsView: View {
             Section("General") {
                 Picker("Language", selection: $appLanguage) {
                     Text("System").tag("system")
-                    Text(verbatim: "English").tag("en")
-                    Text(verbatim: "中文").tag("zh-Hans")
+                    // Languages sorted alphabetically by their own name.
+                    ForEach(Self.languages.sorted {
+                        $0.name.localizedStandardCompare($1.name) == .orderedAscending
+                    }, id: \.code) { lang in
+                        Text(verbatim: lang.name).tag(lang.code)
+                    }
                 }
                 .onChange(of: appLanguage) { actions.relaunchApp() }
                 Toggle("Launch at login", isOn: $launchAtLogin)

@@ -1,0 +1,38 @@
+"Search" = "검색";
+"Settings" = "설정";
+"Folder Name" = "폴더 이름";
+"Remove from Folder" = "폴더에서 제거";
+"Folder" = "폴더";
+
+"Display" = "표시";
+"Show icon in Dock" = "Dock에 아이콘 표시";
+"Show icon in menu bar" = "메뉴 막대에 아이콘 표시";
+"Grid" = "격자";
+"Icon size" = "아이콘 크기";
+"Icons per row: %lld" = "행당 아이콘 수: %lld";
+"Rows per page: %lld" = "페이지당 행 수: %lld";
+"Paging" = "페이지 넘김";
+"Reverse two-finger swipe direction" = "두 손가락 쓸어넘기기 방향 반전";
+"Activation" = "활성화";
+"Trackpad pinch gesture" = "트랙패드 오므리기 제스처";
+"Global shortcut ⌃⌥L" = "전역 단축키 ⌃⌥L";
+"Dock / menu-bar icon" = "Dock / 메뉴 막대 아이콘";
+"Click to open" = "클릭하여 열기";
+"General" = "일반";
+"Language" = "언어";
+"System" = "시스템";
+"Launch at login" = "로그인 시 실행";
+"Import classic Launchpad layout" = "클래식 Launchpad 레이아웃 가져오기";
+"Imported %lld items" = "%lld개 항목을 가져왔습니다";
+"No classic Launchpad data found" = "클래식 Launchpad 데이터를 찾을 수 없습니다";
+"Relaunch Settings" = "Relaunch 설정";
+
+"Open Launchpad" = "Launchpad 열기";
+"Settings…" = "설정…";
+"Quit Relaunch" = "Relaunch 종료";
+
+"Imported classic Launchpad layout" = "클래식 Launchpad 레이아웃을 가져왔습니다";
+"Restored page order and folders — %lld items." = "페이지 순서와 폴더를 복원했습니다 — %lld개 항목.";
+"No classic Launchpad data" = "클래식 Launchpad 데이터 없음";
+"There is no classic Launchpad database to import on this Mac." = "이 Mac에는 가져올 클래식 Launchpad 데이터베이스가 없습니다.";
+"OK" = "확인";
