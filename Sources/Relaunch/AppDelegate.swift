@@ -39,7 +39,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             setHotkey: { [weak self] in self?.setHotkey($0) },
             isLogin: { LoginItem.isEnabled },
             importLegacy: { [weak self] in self?.launchpad.importFromLegacy() ?? -1 },
-            reloadLayout: { [weak self] in self?.launchpad.applyLayoutSettings() }
+            reloadLayout: { [weak self] in self?.launchpad.applyLayoutSettings() },
+            relaunchApp: { Self.relaunch() }
         )
         settingsWindow = SettingsWindowController(actions: actions)
         launchpad.onOpenSettings = { [weak self] in self?.openSettings() }
@@ -82,6 +83,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func openSettings() { settingsWindow.show() }
+
+    /// Relaunch the app (used to apply a language change cleanly).
+    static func relaunch() {
+        let path = Bundle.main.bundlePath
+        Process.launchedProcess(launchPath: "/bin/sh", arguments: ["-c", "sleep 0.4; open \"\(path)\""])
+        NSApp.terminate(nil)
+    }
 
     private func setGesture(_ on: Bool) {
         defaults.set(on, forKey: gestureKey)

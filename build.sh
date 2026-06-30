@@ -18,6 +18,10 @@ mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 echo "==> Writing Info.plist + resources"
 cp "$ROOT/Resources/Info.plist" "$APP/Contents/Info.plist"
 [ -f "$ROOT/Resources/AppIcon.icns" ] && cp "$ROOT/Resources/AppIcon.icns" "$APP/Contents/Resources/AppIcon.icns"
+# Localizations (.lproj/Localizable.strings)
+for lproj in "$ROOT"/Resources/*.lproj; do
+    [ -d "$lproj" ] && cp -R "$lproj" "$APP/Contents/Resources/"
+done
 
 slices=()
 for arch in $ARCHS; do

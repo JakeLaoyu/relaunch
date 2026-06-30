@@ -12,7 +12,7 @@ final class SettingsWindowController {
         if window == nil {
             let host = NSHostingController(rootView: SettingsView(actions: actions))
             let w = NSWindow(contentViewController: host)
-            w.title = "Relaunch 设置"
+            w.title = NSLocalizedString("Relaunch Settings", comment: "")
             w.styleMask = [.titled, .closable]
             w.isReleasedWhenClosed = false
             w.center()

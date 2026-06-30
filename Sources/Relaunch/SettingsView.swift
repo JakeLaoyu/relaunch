@@ -10,6 +10,7 @@ struct SettingsActions {
     let isLogin: () -> Bool
     let importLegacy: () -> Int
     let reloadLayout: () -> Void
+    let relaunchApp: () -> Void
 }
 
 struct SettingsView: View {
@@ -23,51 +24,59 @@ struct SettingsView: View {
     @AppStorage("columns") private var columns = 7
     @AppStorage("rows") private var rows = 5
     @AppStorage("swipeReversed") private var swipeReversed = false
+    @AppStorage("appLanguage") private var appLanguage = "en"
     @State private var launchAtLogin = false
     @State private var importResult: String?
 
     var body: some View {
         Form {
-            Section("显示") {
-                Toggle("在 Dock 显示图标", isOn: $showDock)
+            Section("Display") {
+                Toggle("Show icon in Dock", isOn: $showDock)
                     .onChange(of: showDock) { actions.setDock(showDock) }
-                Toggle("在菜单栏显示图标", isOn: $showMenuBar)
+                Toggle("Show icon in menu bar", isOn: $showMenuBar)
                     .onChange(of: showMenuBar) { actions.setMenuBar(showMenuBar) }
             }
 
-            Section("网格") {
+            Section("Grid") {
                 HStack {
-                    Text("图标大小")
+                    Text("Icon size")
                     Slider(value: $iconSize, in: 48...112, step: 2)
                         .onChange(of: iconSize) { actions.reloadLayout() }
                     Text("\(Int(iconSize))").monospacedDigit().foregroundStyle(.secondary)
                 }
-                Stepper("每行图标数：\(columns)", value: $columns, in: 4...10)
+                Stepper("Icons per row: \(columns)", value: $columns, in: 4...10)
                     .onChange(of: columns) { actions.reloadLayout() }
-                Stepper("每页行数：\(rows)", value: $rows, in: 3...8)
+                Stepper("Rows per page: \(rows)", value: $rows, in: 3...8)
                     .onChange(of: rows) { actions.reloadLayout() }
             }
 
-            Section("翻页") {
-                Toggle("反转双指滑动方向", isOn: $swipeReversed)
+            Section("Paging") {
+                Toggle("Reverse two-finger swipe direction", isOn: $swipeReversed)
             }
 
-            Section("唤起方式") {
-                Toggle("触控板捏合手势", isOn: $gestureEnabled)
+            Section("Activation") {
+                Toggle("Trackpad pinch gesture", isOn: $gestureEnabled)
                     .onChange(of: gestureEnabled) { actions.setGesture(gestureEnabled) }
-                Toggle("全局快捷键 ⌃⌥L", isOn: $hotkeyEnabled)
+                Toggle("Global shortcut ⌃⌥L", isOn: $hotkeyEnabled)
                     .onChange(of: hotkeyEnabled) { actions.setHotkey(hotkeyEnabled) }
-                LabeledContent("Dock 图标 / 菜单栏图标", value: "点击即可打开")
+                LabeledContent("Dock / menu-bar icon", value: "Click to open")
                     .foregroundStyle(.secondary)
             }
 
-            Section("通用") {
-                Toggle("开机启动", isOn: $launchAtLogin)
+            Section("General") {
+                Picker("Language", selection: $appLanguage) {
+                    Text(verbatim: "English").tag("en")
+                    Text(verbatim: "中文").tag("zh-Hans")
+                    Text("System").tag("system")
+                }
+                .onChange(of: appLanguage) { actions.relaunchApp() }
+                Toggle("Launch at login", isOn: $launchAtLogin)
                     .onChange(of: launchAtLogin) { actions.setLogin(launchAtLogin) }
                 HStack {
-                    Button("导入旧版启动台分组") {
+                    Button("Import classic Launchpad layout") {
                         let n = actions.importLegacy()
-                        importResult = n >= 0 ? "已导入 \(n) 个项目" : "未找到旧版启动台数据"
+                        importResult = n >= 0 ? String(localized: "Imported \(n) items")
+                                              : String(localized: "No classic Launchpad data found")
                     }
                     if let importResult {
                         Text(importResult).font(.callout).foregroundStyle(.secondary)

@@ -114,7 +114,7 @@ struct LaunchpadView: View {
         ZStack {
             HStack(spacing: 8) {
                 Image(systemName: "magnifyingglass").foregroundStyle(.white.opacity(0.7))
-                TextField("搜索", text: $model.query)
+                TextField("Search", text: $model.query)
                     .textFieldStyle(.plain)
                     .font(.title3)
                     .foregroundStyle(.white)
@@ -135,7 +135,7 @@ struct LaunchpadView: View {
                     .background(.ultraThinMaterial, in: Circle())
             }
             .buttonStyle(.plain)
-            .help("设置")
+            .help("Settings")
         }
     }
 
@@ -507,7 +507,7 @@ private struct FolderOverlay: View {
 
             if let folder = model.folder(folderID) {
                 VStack(spacing: 18) {
-                    TextField("文件夹名称", text: $name)
+                    TextField("Folder Name", text: $name)
                         .textFieldStyle(.plain)
                         .font(.title2.weight(.semibold))
                         .multilineTextAlignment(.center)
@@ -587,7 +587,7 @@ private struct FolderOverlay: View {
                 .lineLimit(1).truncationMode(.tail)
         }
         .contextMenu {
-            Button("移出文件夹") { model.removeFromFolder(folderID, path) }
+            Button("Remove from Folder") { model.removeFromFolder(folderID, path) }
         }
     }
 

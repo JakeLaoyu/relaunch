@@ -98,7 +98,7 @@ enum LaunchpadImporter {
                             if let b = appBundle[fapp], let p = bundleIDToPath[b] { paths.append(p) }
                         }
                     }
-                    let name = folderName[child] ?? "文件夹"
+                    let name = folderName[child] ?? String(localized: "Folder")
                     if paths.count >= 2 {
                         result.append(.folder(Folder(id: "lp-\(child)", name: name, appPaths: paths)))
                     } else if let only = paths.first {

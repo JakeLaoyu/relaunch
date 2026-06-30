@@ -226,7 +226,7 @@ final class LaunchpadModel: ObservableObject {
             }
         case .app(let targetPath):
             if let i = items.firstIndex(where: { $0.id == "app:" + targetPath }) {
-                items[i] = .folder(Folder(id: UUID().uuidString, name: "文件夹",
+                items[i] = .folder(Folder(id: UUID().uuidString, name: String(localized: "Folder"),
                                           appPaths: [targetPath, dragPath]))
             }
         }
@@ -265,7 +265,7 @@ final class LaunchpadModel: ObservableObject {
                 guard targetPath != src else { return }
                 removeSourceApp(payload)
                 if let i = items.firstIndex(where: { $0.id == "app:" + targetPath }) {
-                    let folder = Folder(id: UUID().uuidString, name: "文件夹",
+                    let folder = Folder(id: UUID().uuidString, name: String(localized: "Folder"),
                                         appPaths: [targetPath, src])
                     items[i] = .folder(folder)
                 }
@@ -383,7 +383,7 @@ enum LayoutStore {
                 let paths = (e.apps ?? []).filter { installed.contains($0) }
                 paths.forEach { present.insert($0) }
                 if paths.count >= 2 {
-                    items.append(.folder(Folder(id: id, name: e.name ?? "文件夹", appPaths: paths)))
+                    items.append(.folder(Folder(id: id, name: e.name ?? String(localized: "Folder"), appPaths: paths)))
                 } else if let only = paths.first {
                     items.append(.app(only))
                 }
