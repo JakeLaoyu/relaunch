@@ -1,7 +1,8 @@
 import AppKit
 
-// Apply the language preference before any UI loads (default: English).
-let appLanguage = UserDefaults.standard.string(forKey: "appLanguage") ?? "en"
+// Apply the language preference before any UI loads. Default follows the
+// system language; English is the fallback for unsupported languages.
+let appLanguage = UserDefaults.standard.string(forKey: "appLanguage") ?? "system"
 if appLanguage == "system" {
     UserDefaults.standard.removeObject(forKey: "AppleLanguages")
 } else {

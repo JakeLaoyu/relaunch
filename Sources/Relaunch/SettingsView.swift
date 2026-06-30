@@ -24,7 +24,7 @@ struct SettingsView: View {
     @AppStorage("columns") private var columns = 7
     @AppStorage("rows") private var rows = 5
     @AppStorage("swipeReversed") private var swipeReversed = false
-    @AppStorage("appLanguage") private var appLanguage = "en"
+    @AppStorage("appLanguage") private var appLanguage = "system"
     @State private var launchAtLogin = false
     @State private var importResult: String?
 
@@ -65,9 +65,9 @@ struct SettingsView: View {
 
             Section("General") {
                 Picker("Language", selection: $appLanguage) {
+                    Text("System").tag("system")
                     Text(verbatim: "English").tag("en")
                     Text(verbatim: "中文").tag("zh-Hans")
-                    Text("System").tag("system")
                 }
                 .onChange(of: appLanguage) { actions.relaunchApp() }
                 Toggle("Launch at login", isOn: $launchAtLogin)
