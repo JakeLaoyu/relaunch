@@ -353,17 +353,25 @@ struct LaunchpadView: View {
         if let target = folderTargetID, let src = dragID {
             withAnimation { model.makeOrJoinFolder(draggingID: src, targetID: target) }
         } else if let src = dragID {
-            // Absolute index of the gap on the page being viewed. moveItem(toIndex:)
-            // removes the source first and inserts here, which keeps cross-page
-            // drops on the viewed page — a by-anchor insert would land one slot
-            // earlier (end of the previous page) once the source is removed.
-            let target = model.currentPage * pageSize + gapSlot
-            withAnimation { model.moveItem(id: src, toIndex: target) }
+            withAnimation { model.moveItem(id: src, toIndex: dropIndex(for: src)) }
             model.commitLayout()
         }
         dragID = nil
         folderTargetID = nil
         hoverItemID = nil
+    }
+
+    /// Absolute insertion index for dropping `src` at `gapSlot` on the viewed
+    /// page. gapSlot indexes the page as displayed *without* the dragged item,
+    /// and moveItem removes the source before inserting — so when the source
+    /// sits before the viewed page, its removal shifts the whole page down one
+    /// and the insertion index has to move with it. (A source on the viewed or
+    /// a later page leaves the page's indexes untouched.)
+    private func dropIndex(for src: String) -> Int {
+        let base = model.currentPage * pageSize
+        var target = base + gapSlot
+        if let from = model.items.firstIndex(where: { $0.id == src }), from < base { target -= 1 }
+        return target
     }
 
     /// Clear all drag state. Needed when the drag is orphaned mid-flight (the
@@ -410,11 +418,10 @@ struct LaunchpadView: View {
         if let target = folderTargetID {
             withAnimation { model.makeOrJoinFolder(draggingID: id, targetID: target) }
         } else {
-            // Same slot math as handleDragEnd: gapSlot indexes the page flow
-            // without the dragged item, which is exactly the array moveItem
-            // sees after removing the source.
-            let target = model.currentPage * pageSize + gapSlot
-            withAnimation { model.moveItem(id: id, toIndex: target) }
+            // removeFromFolder put the app right after its folder, which can
+            // be before the viewed page if the drag edge-flipped forward —
+            // dropIndex compensates the same way as a plain cross-page drag.
+            withAnimation { model.moveItem(id: id, toIndex: dropIndex(for: id)) }
             model.commitLayout()
         }
         dragID = nil; folderTargetID = nil; hoverItemID = nil; extDragPath = nil
