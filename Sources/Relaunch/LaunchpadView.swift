@@ -507,7 +507,9 @@ struct LaunchpadView: View {
 
     private func folderIcon(_ folder: Folder) -> some View {
         VStack(spacing: 7) {
-            ZStack {
+            // Preview icons fill from the top-left like classic Launchpad,
+            // not vertically centered.
+            ZStack(alignment: .top) {
                 RoundedRectangle(cornerRadius: 16).fill(.white.opacity(0.18))
                 LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 4), count: 3),
                           spacing: 4) {
