@@ -17,6 +17,10 @@ final class LaunchpadController: NSObject, NSWindowDelegate {
     private var scrollFired = false
     private var scrollMonitor: Any?
 
+    // Bumped on every show()/close() so a close's fade-out completion can tell
+    // whether a show() happened during the fade (and must not order out).
+    private var showGeneration = 0
+
     /// Called when the user taps the "more" button in the search row.
     var onOpenSettings: (() -> Void)?
 
@@ -30,6 +34,7 @@ final class LaunchpadController: NSObject, NSWindowDelegate {
     func show() {
         if window == nil { buildWindow() }
         guard let window else { return }
+        showGeneration += 1
 
         // Always open to a clean state.
         model.query = ""
@@ -54,11 +59,14 @@ final class LaunchpadController: NSObject, NSWindowDelegate {
 
     func close() {
         guard let window, window.isVisible else { return }
+        showGeneration += 1
+        let gen = showGeneration
         NSAnimationContext.runAnimationGroup({ ctx in
             ctx.duration = 0.14
             window.animator().alphaValue = 0
-        }, completionHandler: {
-            window.orderOut(nil)
+        }, completionHandler: { [weak self] in
+            // Skip if a show() re-opened the window during the fade.
+            if self?.showGeneration == gen { window.orderOut(nil) }
         })
     }
 
@@ -92,6 +100,17 @@ final class LaunchpadController: NSObject, NSWindowDelegate {
         w.contentViewController = NSHostingController(rootView: root)
         window = w
         setupScrollMonitor()
+
+        // Track display changes (resolution, monitor plug/unplug) while open.
+        NotificationCenter.default.addObserver(
+            forName: NSApplication.didChangeScreenParametersNotification,
+            object: nil, queue: .main
+        ) { [weak self] _ in
+            guard let self, let window = self.window, window.isVisible else { return }
+            let mouse = NSEvent.mouseLocation
+            let screen = NSScreen.screens.first { $0.frame.contains(mouse) } ?? NSScreen.main
+            if let frame = screen?.frame { window.setFrame(frame, display: true) }
+        }
     }
 
     private func setupScrollMonitor() {

@@ -84,13 +84,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func openSettings() { settingsWindow.show() }
 
-    /// Relaunch the app (used to apply a language change cleanly). The bundle
-    /// path is passed as an argument ($0), never interpolated into the script,
-    /// so paths with shell metacharacters can't break or inject commands.
+    /// Relaunch the app (used to apply a language change cleanly). The helper
+    /// waits for this process to actually exit (up to ~5 s) before reopening,
+    /// so a slow teardown can't make `open` hit the still-running instance.
+    /// The pid and bundle path are passed as arguments ($0/$1), never
+    /// interpolated into the script, so paths with shell metacharacters can't
+    /// break or inject commands.
     static func relaunch() {
+        let pid = String(ProcessInfo.processInfo.processIdentifier)
         let path = Bundle.main.bundlePath
-        Process.launchedProcess(launchPath: "/bin/sh",
-                                arguments: ["-c", "sleep 0.4; open \"$0\"", path])
+        let script = "i=0; while /bin/kill -0 \"$0\" 2>/dev/null && [ \"$i\" -lt 100 ]; do sleep 0.05; i=$((i+1)); done; open \"$1\""
+        Process.launchedProcess(launchPath: "/bin/sh", arguments: ["-c", script, pid, path])
         NSApp.terminate(nil)
     }
 

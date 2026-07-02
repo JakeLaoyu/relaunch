@@ -23,9 +23,6 @@ enum LaunchItem: Identifiable, Hashable {
     var isFolder: Bool { if case .folder = self { return true }; return false }
 }
 
-/// Where a dropped item lands relative to a target cell.
-enum DropZone { case before, after, onto }
-
 // MARK: - Model
 
 final class LaunchpadModel: ObservableObject {
@@ -133,13 +130,16 @@ final class LaunchpadModel: ObservableObject {
         if appsByPath.isEmpty {
             let apps = AppScanner.scan()
             appsByPath = Dictionary(apps.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
-            loaded = true
         }
+        // `loaded` only flips on success: a failed import must leave the next
+        // reload() free to read layout.json, or reconcile() would rebuild an
+        // alphabetical layout from empty items and save over the user's one.
         guard let imported = LaunchpadImporter.importLayout(bundleIDToPath: bundleMap()) else {
             return -1
         }
         items = imported
         reconcile(installed: Set(appsByPath.keys))
+        loaded = true
         return items.count
     }
 
@@ -239,104 +239,6 @@ final class LaunchpadModel: ObservableObject {
     /// Persist the current order once a drag finishes.
     func commitLayout() { cleanup(); save() }
 
-    /// Core drop handler for the top-level grid.
-    func performDrop(payload: String, targetID: String, zone: DropZone) {
-        // Dropping an item onto itself is a no-op in any zone. (For .before/
-        // .after this also prevents removing the target as the moving item and
-        // then re-inserting it at the end of the layout.)
-        if payload == topPayload(forID: targetID) { return }
-        let p = payload.components(separatedBy: "|")
-        guard let kind = p.first else { return }
-
-        let sourceAppPath: String? = (kind == "T" && p.count > 2 && p[1] == "app") ? p[2]
-                                   : (kind == "F" && p.count > 2) ? p[2] : nil
-
-        guard let target = items.first(where: { $0.id == targetID }) else { return }
-
-        // Create or extend a folder by dropping an app onto an app/folder.
-        if zone == .onto, let src = sourceAppPath {
-            switch target {
-            case .folder(let f):
-                removeSourceApp(payload)
-                if let i = items.firstIndex(where: { $0.id == "folder:" + f.id }),
-                   case .folder(var ff) = items[i] {
-                    if !ff.appPaths.contains(src) { ff.appPaths.append(src) }
-                    items[i] = .folder(ff)
-                }
-                cleanup(); save(); return
-            case .app(let targetPath):
-                guard targetPath != src else { return }
-                removeSourceApp(payload)
-                if let i = items.firstIndex(where: { $0.id == "app:" + targetPath }) {
-                    let folder = Folder(id: UUID().uuidString, name: String(localized: "Folder"),
-                                        appPaths: [targetPath, src])
-                    items[i] = .folder(folder)
-                }
-                cleanup(); save(); return
-            }
-        }
-
-        // Otherwise: reorder before/after the target.
-        let moving: LaunchItem?
-        if kind == "T", p.count > 2, p[1] == "folder" {
-            moving = removeTop("folder:" + p[2])
-        } else if kind == "T", let src = sourceAppPath {
-            moving = removeTop("app:" + src)
-        } else if kind == "F", let src = sourceAppPath {
-            removeSourceApp(payload); moving = .app(src)
-        } else {
-            moving = nil
-        }
-        guard let item = moving else { cleanup(); save(); return }
-        var at = items.firstIndex(where: { $0.id == targetID }) ?? items.count
-        if zone == .after { at += 1 }
-        items.insert(item, at: min(at, items.count))
-        cleanup(); save()
-    }
-
-    /// Drop an app onto an open folder's background to add it.
-    func addToFolder(_ folderID: String, payload: String) {
-        let p = payload.components(separatedBy: "|")
-        let src: String? = (p.first == "T" && p.count > 2 && p[1] == "app") ? p[2]
-                         : (p.first == "F" && p.count > 2) ? p[2] : nil
-        guard let app = src else { return }
-        removeSourceApp(payload)
-        if let i = items.firstIndex(where: { $0.id == "folder:" + folderID }),
-           case .folder(var f) = items[i] {
-            if !f.appPaths.contains(app) { f.appPaths.append(app) }
-            items[i] = .folder(f)
-        }
-        cleanup(); save()
-    }
-
-    // Helpers -----------------------------------------------------------------
-
-    private func topPayload(forID id: String) -> String {
-        if id.hasPrefix("app:") { return "T|app|" + String(id.dropFirst(4)) }
-        if id.hasPrefix("folder:") { return "T|folder|" + String(id.dropFirst(7)) }
-        return id
-    }
-
-    @discardableResult
-    private func removeTop(_ id: String) -> LaunchItem? {
-        guard let i = items.firstIndex(where: { $0.id == id }) else { return nil }
-        return items.remove(at: i)
-    }
-
-    private func removeSourceApp(_ payload: String) {
-        let p = payload.components(separatedBy: "|")
-        if p.first == "T", p.count > 2, p[1] == "app" {
-            removeTop("app:" + p[2])
-        } else if p.first == "F", p.count > 2 {
-            let fid = p[1], path = p[2]
-            if let i = items.firstIndex(where: { $0.id == "folder:" + fid }),
-               case .folder(var f) = items[i] {
-                f.appPaths.removeAll { $0 == path }
-                items[i] = .folder(f)
-            }
-        }
-    }
-
     /// Dissolve folders that have fallen to 0 or 1 apps.
     private func cleanup() {
         var result: [LaunchItem] = []
@@ -407,6 +309,8 @@ enum LayoutStore {
             case .folder(let f): return Entry(type: "folder", path: nil, id: f.id, name: f.name, apps: f.appPaths)
             }
         }
-        if let data = try? JSONEncoder().encode(entries) { try? data.write(to: url) }
+        // Atomic, so a crash mid-write can't leave a truncated file that the
+        // next launch would misread as "no layout" and overwrite.
+        if let data = try? JSONEncoder().encode(entries) { try? data.write(to: url, options: .atomic) }
     }
 }
