@@ -24,6 +24,12 @@ struct LaunchpadView: View {
     @State private var edgeTimer: Timer?
     @State private var hoverID: String?
 
+    // Drag handed off from an open folder (classic: dragging past the folder
+    // edge closes it and the drag continues over the page). The app stays in
+    // the folder until the drop so the overlay never unmounts mid-gesture.
+    @State private var extDragPath: String?
+    @State private var gridFrame: CGRect = .zero   // pagedGrid frame, global coords
+
     private func flowItems() -> [LaunchItem] {
         currentPageItems.filter { $0.id != dragID }
     }
@@ -81,14 +87,30 @@ struct LaunchpadView: View {
             .padding(.horizontal, 90)
 
             if let id = model.openFolderID {
-                FolderOverlay(model: model, folderID: id, onLaunch: { onLaunch($0) })
+                FolderOverlay(model: model, folderID: id, onLaunch: { onLaunch($0) },
+                              onDragOut: { path, global in beginFolderDragOut(path, at: global) },
+                              onDragOutMoved: { global in
+                                  dragPoint = toGrid(global)
+                                  handleDragMove(dragPoint, size: gridFrame.size)
+                              },
+                              onDragOutEnded: { endFolderDragOut(folderID: id) })
             }
         }
         .background(VisualEffectView().ignoresSafeArea())
         .environment(\.colorScheme, .dark)
         .onAppear { searchFocused = true }
-        .onChange(of: model.query) { model.currentPage = 0 }
+        .onChange(of: model.query) {
+            // Typing swaps the grid for search results, tearing the drag
+            // gesture down without onEnded — drop any in-flight drag state.
+            resetDragState()
+            model.currentPage = 0
+        }
+        .onReceive(NotificationCenter.default.publisher(for: NSWindow.didBecomeKeyNotification)) { _ in
+            // Re-opening after ⌘-Tab (window closes mid-drag): clear leftovers.
+            resetDragState()
+        }
         .onKeyPress(.escape) {
+            resetDragState()
             if model.openFolderID != nil { model.openFolderID = nil }
             else if !model.query.isEmpty { model.query = "" }
             else { onClose() }
@@ -166,6 +188,11 @@ struct LaunchpadView: View {
             .clipped()
             .coordinateSpace(name: "gridRoot")
             .gesture(gridGesture(size: geo.size))
+            .background(GeometryReader { g -> Color in
+                let f = g.frame(in: .global)
+                if gridFrame != f { DispatchQueue.main.async { gridFrame = f } }
+                return Color.clear
+            })
         }
     }
 
@@ -333,6 +360,61 @@ struct LaunchpadView: View {
         hoverItemID = nil
     }
 
+    /// Clear all drag state. Needed when the drag is orphaned mid-flight (the
+    /// gesture's view is torn down without onEnded): Escape, typing into
+    /// search, or the window closing under the drag. Without this, the stale
+    /// dragID makes the next click move the old item instead of launching.
+    private func resetDragState() {
+        guard dragID != nil || extDragPath != nil || pressItemID != nil else { return }
+        stopEdgeFlip()
+        dwellTimer?.invalidate(); dwellTimer = nil
+        dragID = nil
+        extDragPath = nil
+        folderTargetID = nil
+        hoverItemID = nil
+        pressItemID = nil
+        pressClassified = false
+    }
+
+    // MARK: - Drag handed off from an open folder
+
+    private func toGrid(_ global: CGPoint) -> CGPoint {
+        CGPoint(x: global.x - gridFrame.minX, y: global.y - gridFrame.minY)
+    }
+
+    /// The drag crossed the folder edge: take over gap/reflow/edge-flip on the
+    /// page. The model is not touched yet — the app leaves its folder on drop.
+    private func beginFolderDragOut(_ path: String, at global: CGPoint) {
+        extDragPath = path
+        dragID = "app:" + path
+        gapSlot = flowItems().count          // open a gap at the end of the page
+        lastHoverSlot = gapSlot
+        hoverItemID = nil
+        folderTargetID = nil
+        dragPoint = toGrid(global)
+        handleDragMove(dragPoint, size: gridFrame.size)
+    }
+
+    private func endFolderDragOut(folderID: String) {
+        guard let path = extDragPath else { return }
+        stopEdgeFlip()
+        dwellTimer?.invalidate(); dwellTimer = nil
+        model.removeFromFolder(folderID, path)   // puts the app back on the grid
+        let id = "app:" + path
+        if let target = folderTargetID {
+            withAnimation { model.makeOrJoinFolder(draggingID: id, targetID: target) }
+        } else {
+            // Same slot math as handleDragEnd: gapSlot indexes the page flow
+            // without the dragged item, which is exactly the array moveItem
+            // sees after removing the source.
+            let target = model.currentPage * pageSize + gapSlot
+            withAnimation { model.moveItem(id: id, toIndex: target) }
+            model.commitLayout()
+        }
+        dragID = nil; folderTargetID = nil; hoverItemID = nil; extDragPath = nil
+        model.openFolderID = nil
+    }
+
     private func scheduleDwell(_ id: String) {
         dwellTimer?.invalidate()
         // .common mode so it fires while the mouse is held (event-tracking mode).
@@ -483,6 +565,11 @@ private struct FolderOverlay: View {
     @ObservedObject var model: LaunchpadModel
     let folderID: String
     let onLaunch: (AppInfo) -> Void
+    // Classic drag-out: crossing the folder edge closes the folder and hands
+    // the drag to the page grid. Locations are in global coordinates.
+    let onDragOut: (String, CGPoint) -> Void
+    let onDragOutMoved: (CGPoint) -> Void
+    let onDragOutEnded: () -> Void
 
     @State private var name: String = ""
     @FocusState private var nameFocused: Bool
@@ -491,6 +578,8 @@ private struct FolderOverlay: View {
     @State private var dragPoint: CGPoint = .zero
     @State private var panelFrame: CGRect = .zero
     @State private var gridFrame: CGRect = .zero
+    @State private var rootOrigin: CGPoint = .zero   // folderRoot origin, global
+    @State private var draggedOut = false
     @State private var gapSlot = 0
     @State private var lastHoverSlot = 0
     @State private var hoverPath: String?
@@ -504,7 +593,9 @@ private struct FolderOverlay: View {
 
     var body: some View {
         ZStack {
-            Color.black.opacity(0.45)
+            // Kept mounted (faded out) during a drag-out so the active drag
+            // gesture — which dies with its view — survives until the drop.
+            Color.black.opacity(draggedOut ? 0 : 0.45)
                 .ignoresSafeArea()
                 .contentShape(Rectangle())
                 .onTapGesture { if dragPath == nil { model.openFolderID = nil } }
@@ -531,13 +622,19 @@ private struct FolderOverlay: View {
                     DispatchQueue.main.async { panelFrame = f }
                     return Color.clear
                 })
+                .opacity(draggedOut ? 0 : 1)
+                .scaleEffect(draggedOut ? 0.9 : 1)
                 .onAppear { name = folder.name }
+                // Escape / tapping the dim background closes the overlay before
+                // any focus change fires — commit the typed name on teardown.
+                .onDisappear { commitName() }
             }
 
-            // Floating dragged icon.
+            // Floating dragged icon (page-sized once it has left the folder).
             if let path = dragPath, let app = model.app(path) {
+                let side: CGFloat = draggedOut ? model.iconSize : 70
                 Image(nsImage: app.icon).resizable().interpolation(.high)
-                    .frame(width: 70, height: 70)
+                    .frame(width: side, height: side)
                     .scaleEffect(1.12)
                     .shadow(color: .black.opacity(0.35), radius: 10, y: 5)
                     .position(dragPoint)
@@ -545,7 +642,16 @@ private struct FolderOverlay: View {
             }
         }
         .coordinateSpace(name: "folderRoot")
+        .background(GeometryReader { g -> Color in
+            let o = g.frame(in: .global).origin
+            if rootOrigin != o { DispatchQueue.main.async { rootOrigin = o } }
+            return Color.clear
+        })
         .environment(\.colorScheme, .dark)
+    }
+
+    private func toGlobal(_ p: CGPoint) -> CGPoint {
+        CGPoint(x: p.x + rootOrigin.x, y: p.y + rootOrigin.y)
     }
 
     private func folderGrid(_ folder: Folder) -> some View {
@@ -609,14 +715,28 @@ private struct FolderOverlay: View {
                     let slot = folder.appPaths.firstIndex(of: path) ?? 0
                     gapSlot = slot; lastHoverSlot = slot; hoverPath = nil
                 }
-                if dragPath != nil { dragPoint = value.location; folderMove(value.location, folder: folder) }
+                if dragPath != nil {
+                    dragPoint = value.location
+                    if draggedOut {
+                        onDragOutMoved(toGlobal(value.location))
+                    } else if !panelFrame.contains(value.location) {
+                        // Crossed the folder edge: close the folder and hand
+                        // the drag to the page grid, like classic Launchpad.
+                        withAnimation(.easeOut(duration: 0.18)) { draggedOut = true }
+                        onDragOut(path, toGlobal(value.location))
+                    } else {
+                        folderMove(value.location, folder: folder)
+                    }
+                }
             }
             .onEnded { value in
-                defer { pressPath = nil; pressClassified = false }
+                defer { pressPath = nil; pressClassified = false; draggedOut = false }
                 guard let path = pressPath else { return }
                 if dragPath == nil {
                     let moved = abs(value.translation.width) > 6 || abs(value.translation.height) > 6
                     if !moved, let app = model.app(path) { onLaunch(app) }
+                } else if draggedOut {
+                    onDragOutEnded()                         // page grid finalizes the drop
                 } else if !panelFrame.contains(value.location) {
                     model.removeFromFolder(folderID, path)   // dropped outside → leave folder
                     model.openFolderID = nil
