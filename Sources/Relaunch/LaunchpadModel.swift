@@ -1,4 +1,5 @@
 import SwiftUI
+import AppKit
 
 // MARK: - Layout model
 
@@ -309,8 +310,29 @@ enum LayoutStore {
             case .folder(let f): return Entry(type: "folder", path: nil, id: f.id, name: f.name, apps: f.appPaths)
             }
         }
-        // Atomic, so a crash mid-write can't leave a truncated file that the
-        // next launch would misread as "no layout" and overwrite.
-        if let data = try? JSONEncoder().encode(entries) { try? data.write(to: url, options: .atomic) }
+        do {
+            // Atomic, so a crash mid-write can't leave a truncated file that
+            // the next launch would misread as "no layout" and overwrite.
+            try JSONEncoder().encode(entries).write(to: url, options: .atomic)
+        } catch {
+            // A full disk would otherwise silently discard every reorder.
+            NSLog("Relaunch: failed to save layout: \(error)")
+            warnSaveFailedOnce()
+        }
+    }
+
+    private static var warnedSaveFailure = false
+    private static func warnSaveFailedOnce() {
+        guard !warnedSaveFailure else { return }
+        warnedSaveFailure = true
+        DispatchQueue.main.async {
+            let alert = NSAlert()
+            alert.alertStyle = .warning
+            alert.messageText = NSLocalizedString("Could not save the layout", comment: "")
+            alert.informativeText = NSLocalizedString(
+                "Your icon layout could not be written to disk. Check the available disk space.", comment: "")
+            NSApp.activate(ignoringOtherApps: true)
+            alert.runModal()
+        }
     }
 }

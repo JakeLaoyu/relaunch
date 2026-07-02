@@ -37,3 +37,8 @@
 "There is no classic Launchpad database to import on this Mac." = "이 Mac에는 가져올 클래식 Launchpad 데이터베이스가 없습니다.";
 "OK" = "확인";
 "Restore Defaults" = "기본값으로 복원";
+
+/* Failure alerts */
+"Could not save the layout" = "레이아웃을 저장할 수 없습니다";
+"Your icon layout could not be written to disk. Check the available disk space." = "아이콘 레이아웃을 디스크에 저장하지 못했습니다. 사용 가능한 디스크 공간을 확인하세요.";
+"Could not open “%@”" = "“%@”을(를) 열 수 없습니다";

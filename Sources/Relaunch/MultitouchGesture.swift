@@ -1,5 +1,6 @@
 import Foundation
 import CoreFoundation
+import AppKit
 
 // Trackpad pinch detection via the private MultitouchSupport framework, loaded
 // at runtime with dlopen so there is no build-time link dependency.
@@ -116,11 +117,17 @@ private func contactFrameCallback(_ device: Int32,
 }
 
 final class MultitouchGesture {
+    private typealias CreateListFn = @convention(c) () -> Unmanaged<CFArray>?
+    private typealias DeviceFn = @convention(c) (UnsafeMutableRawPointer, Int32) -> Void
+
     private var lib: UnsafeMutableRawPointer?
     private var deviceList: CFArray?   // owns the MTDeviceRefs in `devices`
     private var devices: [UnsafeMutableRawPointer] = []
-    private var stopFn: (@convention(c) (UnsafeMutableRawPointer, Int32) -> Void)?
+    private var createListFn: CreateListFn?
+    private var stopFn: DeviceFn?
     private var started = false
+    private var refreshTimer: Timer?
+    private var wakeObserver: NSObjectProtocol?
 
     init(onTrigger: @escaping () -> Void) {
         state.lock.lock()
@@ -131,12 +138,14 @@ final class MultitouchGesture {
     func start() {
         guard !started else { return }
 
-        let path = "/System/Library/PrivateFrameworks/MultitouchSupport.framework/MultitouchSupport"
-        guard let lib = dlopen(path, RTLD_NOW) else {
+        if lib == nil {
+            let path = "/System/Library/PrivateFrameworks/MultitouchSupport.framework/MultitouchSupport"
+            lib = dlopen(path, RTLD_NOW)
+        }
+        guard let lib else {
             NSLog("Relaunch: could not load MultitouchSupport")
             return
         }
-        self.lib = lib
 
         guard let createListSym = dlsym(lib, "MTDeviceCreateList"),
               let registerSym = dlsym(lib, "MTRegisterContactFrameCallback"),
@@ -146,14 +155,13 @@ final class MultitouchGesture {
             return
         }
 
-        typealias CreateListFn = @convention(c) () -> Unmanaged<CFArray>?
         typealias RegisterFn = @convention(c) (UnsafeMutableRawPointer, MTContactCallback) -> Void
-        typealias StartFn = @convention(c) (UnsafeMutableRawPointer, Int32) -> Void
 
         let createList = unsafeBitCast(createListSym, to: CreateListFn.self)
         let register = unsafeBitCast(registerSym, to: RegisterFn.self)
-        let startDevice = unsafeBitCast(startSym, to: StartFn.self)
-        stopFn = unsafeBitCast(stopSym, to: StartFn.self)
+        let startDevice = unsafeBitCast(startSym, to: DeviceFn.self)
+        createListFn = createList
+        stopFn = unsafeBitCast(stopSym, to: DeviceFn.self)
 
         guard let list = createList()?.takeRetainedValue() else { return }
         // Keep the array alive while started: the raw device pointers below are
@@ -169,6 +177,7 @@ final class MultitouchGesture {
         }
         mtlog("MT start: devices=\(devices.count)")
         started = true
+        watchForDeviceChanges()
     }
 
     func stop() {
@@ -179,6 +188,33 @@ final class MultitouchGesture {
         state.lock.lock()
         state.startSpread.removeAll()
         state.lock.unlock()
+        refreshTimer?.invalidate(); refreshTimer = nil
+        if let wakeObserver {
+            NSWorkspace.shared.notificationCenter.removeObserver(wakeObserver)
+            self.wakeObserver = nil
+        }
         started = false
+    }
+
+    /// The device list is captured once at start(), so a trackpad plugged in
+    /// later — or devices re-created after sleep — would never deliver the
+    /// gesture. Re-enumerate on wake, and poll slowly for count changes.
+    private func watchForDeviceChanges() {
+        wakeObserver = NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.didWakeNotification, object: nil, queue: .main
+        ) { [weak self] _ in self?.restart() }
+
+        refreshTimer = Timer.scheduledTimer(withTimeInterval: 30, repeats: true) { [weak self] _ in
+            guard let self, let createList = self.createListFn else { return }
+            var count = 0
+            if let list = createList()?.takeRetainedValue() { count = CFArrayGetCount(list) }
+            if count != self.devices.count { self.restart() }
+        }
+    }
+
+    private func restart() {
+        guard started else { return }
+        stop()
+        start()
     }
 }

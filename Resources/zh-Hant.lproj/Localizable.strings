@@ -37,3 +37,8 @@
 "There is no classic Launchpad database to import on this Mac." = "這台 Mac 上沒有可匯入的舊版啟動台資料庫。";
 "OK" = "好";
 "Restore Defaults" = "回復預設";
+
+/* Failure alerts */
+"Could not save the layout" = "無法儲存佈局";
+"Your icon layout could not be written to disk. Check the available disk space." = "圖示佈局無法寫入磁碟，請檢查可用磁碟空間。";
+"Could not open “%@”" = "無法打開「%@」";

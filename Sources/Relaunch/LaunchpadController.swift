@@ -153,7 +153,20 @@ final class LaunchpadController: NSObject, NSWindowDelegate {
     private func launch(_ app: AppInfo) {
         let config = NSWorkspace.OpenConfiguration()
         config.activates = true
-        NSWorkspace.shared.openApplication(at: app.url, configuration: config) { _, _ in }
+        NSWorkspace.shared.openApplication(at: app.url, configuration: config) { _, error in
+            guard let error else { return }
+            // A damaged/translocated app would otherwise just close the
+            // overlay with no feedback at all.
+            DispatchQueue.main.async {
+                let alert = NSAlert()
+                alert.alertStyle = .warning
+                alert.messageText = String(
+                    format: NSLocalizedString("Could not open “%@”", comment: ""), app.name)
+                alert.informativeText = error.localizedDescription
+                NSApp.activate(ignoringOtherApps: true)
+                alert.runModal()
+            }
+        }
         close()
     }
 

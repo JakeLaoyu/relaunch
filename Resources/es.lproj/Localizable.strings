@@ -37,3 +37,8 @@
 "There is no classic Launchpad database to import on this Mac." = "No hay ninguna base de datos del Launchpad clásico para importar en este Mac.";
 "OK" = "OK";
 "Restore Defaults" = "Restablecer valores predeterminados";
+
+/* Failure alerts */
+"Could not save the layout" = "No se pudo guardar el diseño";
+"Your icon layout could not be written to disk. Check the available disk space." = "El diseño de iconos no se pudo escribir en el disco. Comprueba el espacio disponible.";
+"Could not open “%@”" = "No se pudo abrir “%@”";

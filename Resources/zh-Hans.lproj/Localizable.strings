@@ -41,3 +41,8 @@
 "There is no classic Launchpad database to import on this Mac." = "这台 Mac 上没有可导入的旧版启动台数据库。";
 "OK" = "好";
 "Restore Defaults" = "恢复默认";
+
+/* Failure alerts */
+"Could not save the layout" = "无法保存布局";
+"Your icon layout could not be written to disk. Check the available disk space." = "图标布局无法写入磁盘，请检查可用磁盘空间。";
+"Could not open “%@”" = "无法打开“%@”";

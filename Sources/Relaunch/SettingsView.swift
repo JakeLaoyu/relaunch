@@ -4,7 +4,7 @@ import SwiftUI
 struct SettingsActions {
     let setDock: (Bool) -> Void
     let setMenuBar: (Bool) -> Void
-    let setLogin: (Bool) -> Void
+    let setLogin: (Bool) -> Bool   // false = registration failed, roll the toggle back
     let setGesture: (Bool) -> Void
     let setHotkey: (Bool) -> Void
     let isLogin: () -> Bool
@@ -82,7 +82,11 @@ struct SettingsView: View {
                 }
                 .onChange(of: appLanguage) { actions.relaunchApp() }
                 Toggle("Launch at login", isOn: $launchAtLogin)
-                    .onChange(of: launchAtLogin) { actions.setLogin(launchAtLogin) }
+                    .onChange(of: launchAtLogin) {
+                        // Roll back to the real registration state on failure,
+                        // like the hotkey toggle does.
+                        if !actions.setLogin(launchAtLogin) { launchAtLogin = actions.isLogin() }
+                    }
                 HStack {
                     Button("Import classic Launchpad layout") {
                         let n = actions.importLegacy()
@@ -121,6 +125,8 @@ struct SettingsView: View {
         actions.setGesture(true)
         actions.setHotkey(true)
         actions.reloadLayout()
+        _ = actions.setLogin(false)   // launch-at-login is opt-in; default is off
+        launchAtLogin = false
         appLanguage = "system"   // relaunches only if the language actually changed
     }
 }

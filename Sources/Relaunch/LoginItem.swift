@@ -7,15 +7,19 @@ enum LoginItem {
         SMAppService.mainApp.status == .enabled
     }
 
-    static func set(_ enabled: Bool) {
+    /// Returns whether the change actually took, so the UI can roll back.
+    @discardableResult
+    static func set(_ enabled: Bool) -> Bool {
         do {
             if enabled {
                 try SMAppService.mainApp.register()
             } else {
                 try SMAppService.mainApp.unregister()
             }
+            return true
         } catch {
             NSLog("Relaunch: login item toggle failed: \(error)")
+            return false
         }
     }
 }

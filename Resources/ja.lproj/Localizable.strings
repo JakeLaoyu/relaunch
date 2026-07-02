@@ -37,3 +37,8 @@
 "There is no classic Launchpad database to import on this Mac." = "この Mac には読み込める旧 Launchpad のデータベースがありません。";
 "OK" = "OK";
 "Restore Defaults" = "デフォルトに戻す";
+
+/* Failure alerts */
+"Could not save the layout" = "レイアウトを保存できませんでした";
+"Your icon layout could not be written to disk. Check the available disk space." = "アイコンレイアウトをディスクに書き込めませんでした。空き容量を確認してください。";
+"Could not open “%@”" = "“%@”を開けませんでした";

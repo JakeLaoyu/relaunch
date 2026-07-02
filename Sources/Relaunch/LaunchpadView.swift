@@ -208,14 +208,20 @@ struct LaunchpadView: View {
                 let slot = (gap >= 0 && idx >= gap) ? idx + 1 : idx
                 let col = slot % columns, row = slot / columns
                 let hovering = hoverID == item.id && dragID == nil
+                // Dragging onto a full page displaces its last item past the
+                // grid; slide it out the trailing edge (toward the next page,
+                // where the drop will actually push it) instead of letting
+                // .clipped() swallow it below the last row.
+                let overflow = slot >= pageSize
                 cellView(item)
                     .frame(width: hitWidth, height: hitHeight)
                     .background(hoverHighlight(hovering))
                     .scaleEffect(item.id == folderTargetID ? 1.14 : (hovering ? 1.06 : 1))
                     .onHover { setHover(item.id, $0) }
                     .frame(width: cw, height: cellH)
-                    .position(x: origin.x + cw * (CGFloat(col) + 0.5),
-                              y: origin.y + cellH * (CGFloat(row) + 0.5))
+                    .position(x: overflow ? size.width + cw : origin.x + cw * (CGFloat(col) + 0.5),
+                              y: overflow ? origin.y + cellH * (CGFloat(rows - 1) + 0.5)
+                                          : origin.y + cellH * (CGFloat(row) + 0.5))
                     .animation(.spring(response: 0.3, dampingFraction: 0.72), value: slot)
                     .animation(.easeOut(duration: 0.12), value: hovering)
             }
