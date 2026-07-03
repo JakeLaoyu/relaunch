@@ -145,7 +145,10 @@ COMMITTED=0
 restore_plist() {
     if [ "$COMMITTED" -ne 1 ]; then
         echo "==> Release aborted — restoring $PLIST" >&2
-        git -C "$ROOT" checkout -- "$PLIST" || true
+        # HEAD form resets both the index and the worktree, so an aborted run
+        # can't leave the bump staged (plain `checkout --` restores from the
+        # index, which already holds the bump if git commit itself failed).
+        git -C "$ROOT" checkout HEAD -- "$PLIST" || true
     fi
 }
 trap restore_plist EXIT
