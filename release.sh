@@ -99,6 +99,9 @@ $PB -c "Set :CFBundleVersion $BUILD_NUM" "$PLIST"
 
 CODESIGN_IDENTITY="$SIGN_ID" "$ROOT/build.sh"
 codesign --verify --deep --strict "$APP"
+# build.sh tolerates a missing slice for local builds; a release must be universal.
+lipo "$APP/Contents/MacOS/Relaunch" -verify_arch arm64 x86_64 \
+    || { echo "ERROR: release binary is not universal (arm64 + x86_64)." >&2; exit 1; }
 
 rm -rf "$DIST"; mkdir -p "$DIST"
 ZIP="$DIST/Relaunch-$VERSION.zip"
@@ -122,6 +125,12 @@ ln -s /Applications "$STAGE/Applications"
 hdiutil create -volname "Relaunch $VERSION" -srcfolder "$STAGE" -ov -format UDZO "$DMG"
 rm -rf "$STAGE"
 codesign --force --sign "$SIGN_ID" "$DMG"
+
+# Notarize the DMG itself too — Apple recommends notarizing the outermost
+# container that users download, so Gatekeeper accepts the disk image directly.
+echo "==> Notarizing DMG"
+xcrun notarytool submit "$DMG" --keychain-profile "$NOTARY_PROFILE" --wait
+xcrun stapler staple "$DMG"
 
 # ---------- Commit, tag, publish ----------
 
