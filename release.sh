@@ -88,10 +88,15 @@ if git -C "$ROOT" rev-parse -q --verify "refs/tags/v$VERSION" >/dev/null; then
     echo "ERROR: tag v$VERSION already exists." >&2
     exit 1
 fi
-if git -C "$ROOT" ls-remote --exit-code --tags origin "refs/tags/v$VERSION" >/dev/null 2>&1; then
-    echo "ERROR: tag v$VERSION already exists on origin." >&2
-    exit 1
-fi
+# ls-remote --exit-code: 0 = tag exists, 2 = no matching refs; anything else
+# means origin is unreachable — abort rather than fail later at git push.
+rc=0
+git -C "$ROOT" ls-remote --exit-code --tags origin "refs/tags/v$VERSION" >/dev/null 2>&1 || rc=$?
+case $rc in
+    0) echo "ERROR: tag v$VERSION already exists on origin." >&2; exit 1 ;;
+    2) ;;
+    *) echo "ERROR: could not query origin for tags (git ls-remote exit $rc) — check network/auth." >&2; exit 1 ;;
+esac
 
 BUILD_NUM="$(( $($PB -c 'Print :CFBundleVersion' "$PLIST") + 1 ))"
 echo "==> Releasing v$VERSION (build $BUILD_NUM), signing as: $SIGN_ID"
