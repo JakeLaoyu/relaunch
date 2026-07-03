@@ -58,7 +58,9 @@ Requirements: clean working tree, `gh` authenticated, a "Developer ID
 Application" identity in the keychain, and a one-time notarization credential
 (`xcrun notarytool store-credentials relaunch-notary --apple-id … --team-id
 K285ZWD2P5 --password <app-specific password>`). Overrides:
-`CODESIGN_IDENTITY`, `NOTARY_PROFILE`.
+`CODESIGN_IDENTITY`, `NOTARY_PROFILE`. If the tag was pushed but the GitHub
+release step failed, retry just that step with
+`./release.sh --publish-only <version>`.
 
 ## Verifying changes
 

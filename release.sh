@@ -3,9 +3,11 @@
 # Relaunch.app, package it as DMG + ZIP, and publish a GitHub release.
 #
 # Usage:
-#   ./release.sh              # interactive version picker
-#   ./release.sh 1.2.0        # explicit version
-#   ./release.sh patch        # bump: patch | minor | major
+#   ./release.sh                        # interactive version picker
+#   ./release.sh 1.2.0                  # explicit version
+#   ./release.sh patch                  # bump: patch | minor | major
+#   ./release.sh --publish-only 1.2.0   # retry just the GitHub release step
+#                                       # (tag already pushed, artifacts in build/dist)
 #
 # One-time setup (notarization credentials, stored in the keychain):
 #   xcrun notarytool store-credentials relaunch-notary \
@@ -24,6 +26,44 @@ NOTARY_PROFILE="${NOTARY_PROFILE:-relaunch-notary}"
 PB=/usr/libexec/PlistBuddy
 
 # ---------- Pre-flight ----------
+
+gh auth status >/dev/null 2>&1 || { echo "ERROR: gh is not authenticated (run: gh auth login)." >&2; exit 1; }
+
+# Resolve the GitHub repo up front (handles every remote URL form) so a bad
+# remote fails pre-flight, not after the release commit/tag/push.
+REPO="$(cd "$ROOT" && gh repo view --json nameWithOwner -q .nameWithOwner)"
+[ -n "$REPO" ] || { echo "ERROR: could not resolve the GitHub repo from origin." >&2; exit 1; }
+
+# Create the release, or top up assets if a partial release already exists.
+publish_release() {
+    if gh release view "v$VERSION" --repo "$REPO" >/dev/null 2>&1; then
+        echo "==> Release v$VERSION already exists — re-uploading assets"
+        gh release upload "v$VERSION" "$DMG" "$ZIP" --repo "$REPO" --clobber
+    else
+        # --verify-tag: abort instead of auto-creating the tag if $REPO doesn't
+        # have it (e.g. gh resolved a different repo than the origin we pushed to).
+        gh release create "v$VERSION" "$DMG" "$ZIP" \
+            --repo "$REPO" \
+            --verify-tag \
+            --title "Relaunch v$VERSION" \
+            --generate-notes
+    fi
+}
+
+# Resume path: the tag was pushed but the GitHub release step failed. Only
+# needs gh + the artifacts, so it skips the build-related pre-flight checks.
+if [ "${1:-}" = "--publish-only" ]; then
+    VERSION="${2:-}"
+    [[ "$VERSION" =~ ^[0-9]+(\.[0-9]+){1,2}$ ]] || { echo "usage: ./release.sh --publish-only <version>" >&2; exit 1; }
+    ZIP="$DIST/Relaunch-$VERSION.zip"
+    DMG="$DIST/Relaunch-$VERSION.dmg"
+    [ -f "$ZIP" ] && [ -f "$DMG" ] || { echo "ERROR: $ZIP / $DMG not found — run a full release." >&2; exit 1; }
+    git -C "$ROOT" ls-remote --exit-code --tags origin "refs/tags/v$VERSION" >/dev/null \
+        || { echo "ERROR: tag v$VERSION is not on origin — run a full release." >&2; exit 1; }
+    publish_release
+    echo "==> Done: v$VERSION published"
+    exit 0
+fi
 
 if [ -n "$(git -C "$ROOT" status --porcelain)" ]; then
     echo "ERROR: working tree is dirty — commit or stash first (the release commits the version bump)." >&2
@@ -49,13 +89,6 @@ One-time setup (needs an app-specific password from https://account.apple.com):
 EOF
     exit 1
 fi
-
-gh auth status >/dev/null 2>&1 || { echo "ERROR: gh is not authenticated (run: gh auth login)." >&2; exit 1; }
-
-# Resolve the GitHub repo up front (handles every remote URL form) so a bad
-# remote fails pre-flight, not after the release commit/tag/push.
-REPO="$(cd "$ROOT" && gh repo view --json nameWithOwner -q .nameWithOwner)"
-[ -n "$REPO" ] || { echo "ERROR: could not resolve the GitHub repo from origin." >&2; exit 1; }
 
 # ---------- Pick the version ----------
 
@@ -169,12 +202,14 @@ git -C "$ROOT" tag "v$VERSION"
 git -C "$ROOT" push --atomic origin HEAD "v$VERSION"
 
 echo "==> Creating GitHub release"
-# --verify-tag: abort instead of auto-creating the tag if $REPO doesn't have
-# it (e.g. gh resolved a different repo than the origin we pushed to).
-gh release create "v$VERSION" "$DMG" "$ZIP" \
-    --repo "$REPO" \
-    --verify-tag \
-    --title "Relaunch v$VERSION" \
-    --generate-notes
+if ! publish_release; then
+    cat >&2 <<EOF
+ERROR: the tag was pushed but publishing the GitHub release failed.
+The artifacts are kept in $DIST — retry just this step with:
+
+  ./release.sh --publish-only $VERSION
+EOF
+    exit 1
+fi
 
 echo "==> Done: v$VERSION published"
