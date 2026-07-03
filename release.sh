@@ -52,6 +52,11 @@ fi
 
 gh auth status >/dev/null 2>&1 || { echo "ERROR: gh is not authenticated (run: gh auth login)." >&2; exit 1; }
 
+# Resolve the GitHub repo up front (handles every remote URL form) so a bad
+# remote fails pre-flight, not after the release commit/tag/push.
+REPO="$(cd "$ROOT" && gh repo view --json nameWithOwner -q .nameWithOwner)"
+[ -n "$REPO" ] || { echo "ERROR: could not resolve the GitHub repo from origin." >&2; exit 1; }
+
 # ---------- Pick the version ----------
 
 CURRENT="$($PB -c 'Print :CFBundleShortVersionString' "$PLIST")"
@@ -162,7 +167,6 @@ git -C "$ROOT" tag "v$VERSION"
 git -C "$ROOT" push origin HEAD "v$VERSION"
 
 echo "==> Creating GitHub release"
-REPO="$(git -C "$ROOT" remote get-url origin | sed -E 's#^(git@github\.com:|https://github\.com/)##; s#\.git$##')"
 gh release create "v$VERSION" "$DMG" "$ZIP" \
     --repo "$REPO" \
     --title "Relaunch v$VERSION" \
