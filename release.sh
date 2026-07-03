@@ -92,6 +92,17 @@ fi
 BUILD_NUM="$(( $($PB -c 'Print :CFBundleVersion' "$PLIST") + 1 ))"
 echo "==> Releasing v$VERSION (build $BUILD_NUM), signing as: $SIGN_ID"
 
+# If anything fails before the release commit, restore the plist so the
+# pre-flight clean-tree check doesn't block the next attempt.
+COMMITTED=0
+restore_plist() {
+    if [ "$COMMITTED" -ne 1 ]; then
+        echo "==> Release aborted — restoring $PLIST" >&2
+        git -C "$ROOT" checkout -- "$PLIST" || true
+    fi
+}
+trap restore_plist EXIT
+
 $PB -c "Set :CFBundleShortVersionString $VERSION" "$PLIST"
 $PB -c "Set :CFBundleVersion $BUILD_NUM" "$PLIST"
 
@@ -137,6 +148,7 @@ xcrun stapler staple "$DMG"
 echo "==> Committing and tagging v$VERSION"
 git -C "$ROOT" add "$PLIST"
 git -C "$ROOT" commit -m "Release v$VERSION"
+COMMITTED=1
 git -C "$ROOT" tag "v$VERSION"
 git -C "$ROOT" push origin HEAD "v$VERSION"
 
