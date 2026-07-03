@@ -169,8 +169,11 @@ git -C "$ROOT" tag "v$VERSION"
 git -C "$ROOT" push --atomic origin HEAD "v$VERSION"
 
 echo "==> Creating GitHub release"
+# --verify-tag: abort instead of auto-creating the tag if $REPO doesn't have
+# it (e.g. gh resolved a different repo than the origin we pushed to).
 gh release create "v$VERSION" "$DMG" "$ZIP" \
     --repo "$REPO" \
+    --verify-tag \
     --title "Relaunch v$VERSION" \
     --generate-notes
 
