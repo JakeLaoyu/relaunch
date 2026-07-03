@@ -138,6 +138,8 @@ overrides `canBecomeKey` so the search field can take focus.
 ## Repo conventions
 
 - Work happens on `feat/classic-launchpad` → PR #1 (base `main`).
+- After pushing fixes for Codex review comments on a PR, comment `@codex review`
+  on the PR to trigger a re-review of the new commits.
 - App bundle id: `com.mindhex.relaunch`. The build is ad-hoc signed by default;
   export `CODESIGN_IDENTITY="Developer ID Application: … (TEAMID)"` to sign with
   a real identity (adds hardened runtime + timestamp for notarization).
