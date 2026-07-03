@@ -1,0 +1,48 @@
+/* Launchpad */
+"Search" = "搜索";
+"Settings" = "设置";
+"Folder Name" = "文件夹名称";
+"Remove from Folder" = "移出文件夹";
+"Folder" = "文件夹";
+
+/* Settings */
+"Display" = "显示";
+"Show icon in Dock" = "在 Dock 显示图标";
+"Show icon in menu bar" = "在菜单栏显示图标";
+"Grid" = "网格";
+"Icon size" = "图标大小";
+"Icons per row: %lld" = "每行图标数：%lld";
+"Rows per page: %lld" = "每页行数：%lld";
+"Paging" = "翻页";
+"Reverse two-finger swipe direction" = "反转双指滑动方向";
+"Activation" = "唤起方式";
+"Trackpad pinch gesture" = "触控板捏合手势";
+"Global shortcut ⌃⌥L" = "全局快捷键 ⌃⌥L";
+"Dock / menu-bar icon" = "Dock 图标 / 菜单栏图标";
+"Click to open" = "点击即可打开";
+"General" = "通用";
+"Language" = "语言";
+"System" = "系统";
+"Launch at login" = "开机启动";
+"Import classic Launchpad layout" = "导入旧版启动台分组";
+"Imported %lld items" = "已导入 %lld 个项目";
+"No classic Launchpad data found" = "未找到旧版启动台数据";
+"Relaunch Settings" = "Relaunch 设置";
+
+/* Menu bar */
+"Open Launchpad" = "打开启动台";
+"Settings…" = "设置…";
+"Quit Relaunch" = "退出 Relaunch";
+
+/* Import alert */
+"Imported classic Launchpad layout" = "已导入旧版启动台布局";
+"Restored page order and folders — %lld items." = "已还原页面顺序与文件夹分组，共 %lld 个项目。";
+"No classic Launchpad data" = "未找到旧版启动台数据";
+"There is no classic Launchpad database to import on this Mac." = "这台 Mac 上没有可导入的旧版启动台数据库。";
+"OK" = "好";
+"Restore Defaults" = "恢复默认";
+
+/* Failure alerts */
+"Could not save the layout" = "无法保存布局";
+"Your icon layout could not be written to disk. Check the available disk space." = "图标布局无法写入磁盘，请检查可用磁盘空间。";
+"Could not open “%@”" = "无法打开“%@”";
