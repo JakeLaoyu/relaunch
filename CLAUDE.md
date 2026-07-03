@@ -46,6 +46,20 @@ Build specifics that matter:
 - Targets `macos14.0` (needs `.scrollTargetBehavior(.paging)`, `onKeyPress`, etc.).
 - Links `-lsqlite3` for the legacy importer and `-framework Carbon` for the hotkey.
 
+## Releasing
+
+`./release.sh` is the one-command release: pick the version (interactive
+patch/minor/major/custom, or pass `1.2.0` / `patch` / `minor` / `major` as an
+argument), bump `Resources/Info.plist`, build signed with the Developer ID
+identity, notarize + staple, package a drag-to-Applications DMG and a ZIP,
+commit + tag `v<version>`, push, and publish a GitHub release via `gh`.
+
+Requirements: clean working tree, `gh` authenticated, a "Developer ID
+Application" identity in the keychain, and a one-time notarization credential
+(`xcrun notarytool store-credentials relaunch-notary --apple-id … --team-id
+K285ZWD2P5 --password <app-specific password>`). Overrides:
+`CODESIGN_IDENTITY`, `NOTARY_PROFILE`.
+
 ## Verifying changes
 
 **Screenshot caveat depends on activation policy.** When the Dock icon is
