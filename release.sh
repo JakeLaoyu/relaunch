@@ -164,7 +164,9 @@ git -C "$ROOT" add "$PLIST"
 git -C "$ROOT" commit -m "Release v$VERSION"
 COMMITTED=1
 git -C "$ROOT" tag "v$VERSION"
-git -C "$ROOT" push origin HEAD "v$VERSION"
+# --atomic: all-or-nothing, so a rejected branch push can't leave the tag
+# published on origin without the version-bump commit and GitHub release.
+git -C "$ROOT" push --atomic origin HEAD "v$VERSION"
 
 echo "==> Creating GitHub release"
 gh release create "v$VERSION" "$DMG" "$ZIP" \
