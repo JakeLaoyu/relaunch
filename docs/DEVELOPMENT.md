@@ -108,11 +108,14 @@ lifecycle, so we control the borderless overlay window and accessory activation.
 contact callback can't capture context, so state lives in a file-private singleton.
 Each contact record is a fixed 96-byte stride; we read only the fields we need by
 byte offset (pos.x @32, pos.y @36, size @48) instead of mirroring the C struct.
-Detection: thumb + three fingers == 4 contacts; fire when the mean spread starts
-wide (>0.20), shrinks by a clear absolute amount (>0.07), and falls below ~66% of
-its widest — tuned to real data (a pinch starts ~0.30 and bottoms out ~0.17 before
-a finger lifts). A four-finger *swipe* translates without converging, so it won't
-fire.
+Detection: 3–5 contacts; per-device baselines ride the spread extremes and
+re-anchor whenever the contact count changes or the centroid travels ≥0.10 —
+both are swipe signatures, so a four-finger *swipe* won't fire. A pinch fires
+when the spread has been above 0.16, shrinks by >0.055 absolute, and falls
+below 80% of its widest (tuned to real data: a thumb + three-finger pinch
+starts ~0.27–0.32 and only reaches ~71–75% of its start before a finger lifts).
+Spread-to-open mirrors the pinch with the same thresholds; refires are limited
+to once per second. Tune against real hardware with `Tools/mtdiag.swift`.
 
 **Global hotkey** (`HotkeyManager.swift`): Carbon hotkeys are system-wide and need
 no Accessibility permission. `register()` checks the `OSStatus` and returns success;
