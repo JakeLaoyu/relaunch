@@ -99,6 +99,7 @@ lifecycle, so we control the borderless overlay window and accessory activation.
 | `MultitouchGesture.swift` | Trackpad pinch detection via private `MultitouchSupport` |
 | `LoginItem.swift` | Launch at login via `SMAppService` |
 | `LaunchpadImporter.swift` | Reads the classic Launchpad SQLite db |
+| `UpdateChecker.swift` | Daily/manual update check against the latest GitHub release; opens the release page |
 | `Tools/makeicon.swift` | Renders `Resources/AppIcon.icns` (squircle + grid); not part of the app build |
 
 ## Subsystem gotchas

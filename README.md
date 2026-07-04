@@ -27,7 +27,7 @@ macOS 26 replaced the classic full-screen Launchpad with a Spotlight-style "Apps
 
 ## Features
 
-- **Classic Launchpad UI** — full-screen dark frosted glass, 7×5 paged grid, paging dots, search field on top. Covers the Dock and menu bar, just like the original.
+- **Classic Launchpad UI** — full-screen frosted glass that follows the system light/dark appearance, 7×5 paged grid, paging dots, search field on top. Covers the Dock and menu bar, just like the original.
 - **Five ways to open it**
   - **Trackpad pinch** — thumb + three fingers, the classic gesture (spread to close). Works via raw multitouch data; no Accessibility permission needed.
   - **Global hotkey** — `⌃⌥L` (Control–Option–L).
@@ -42,6 +42,7 @@ macOS 26 replaced the classic full-screen Launchpad with a Spotlight-style "Apps
   - Folders with fewer than two apps dissolve automatically.
 - **Imports your old Launchpad layout** — on first run, Relaunch reads the classic Launchpad database and restores your page order and folders. You can re-import any time from the menu or Settings.
 - **Stays out of your way** — your layout lives in `~/Library/Application Support/Relaunch/layout.json`; newly installed apps are appended automatically, uninstalled ones are dropped.
+- **Update checks, no updater framework** — once a day (toggleable) Relaunch compares its version against the latest GitHub release and offers to take you there. Nothing is downloaded or installed behind your back.
 - **Localized** — English, Deutsch, Español, Français, 日本語, 한국어, 简体中文, 繁體中文.
 - **Native & universal** — Swift + AppKit + SwiftUI, a single universal binary for Apple Silicon and Intel.
 
@@ -100,6 +101,7 @@ Sources/Relaunch/
   MultitouchGesture.swift    Trackpad pinch detection
   LaunchpadImporter.swift    Classic Launchpad layout import
   LoginItem.swift            Launch at login (SMAppService)
+  UpdateChecker.swift        Update check against GitHub releases
 ```
 
 ### A note on the private framework
