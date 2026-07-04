@@ -134,7 +134,8 @@ load, missing apps are dropped and newly installed apps appended; folders with <
 apps auto-dissolve.
 
 **Overlay window** (`LaunchpadController.swift`): borderless, `CGShieldingWindowLevel`
-(covers Dock + menu bar), `.darkAqua`, dismissed on resign-key. `LaunchpadWindow`
+(covers Dock + menu bar), follows the system light/dark appearance (colors in
+`LaunchpadView` adapt via `colorScheme` / `.primary`), dismissed on resign-key. `LaunchpadWindow`
 overrides `canBecomeKey` so the search field can take focus.
 
 ## Repo conventions

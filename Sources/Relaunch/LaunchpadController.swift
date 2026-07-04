@@ -81,7 +81,6 @@ final class LaunchpadController: NSObject, NSWindowDelegate {
         w.isOpaque = false
         w.backgroundColor = .clear
         w.hasShadow = false
-        w.appearance = NSAppearance(named: .darkAqua)
         w.delegate = self
 
         let root = LaunchpadView(
