@@ -45,6 +45,10 @@ final class UpdateChecker {
 
         URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
             guard let self else { return }
+            // Record the attempt even on failure so a failing endpoint (e.g.
+            // no release yet) doesn't defeat the daily throttle and hit
+            // GitHub on every launch. Manual checks are never throttled.
+            self.defaults.set(Date(), forKey: self.lastCheckKey)
             let status = (response as? HTTPURLResponse)?.statusCode
             guard let data, status == 200,
                   let release = try? JSONDecoder().decode(Release.self, from: data) else {
@@ -61,8 +65,6 @@ final class UpdateChecker {
                 }
                 return
             }
-            self.defaults.set(Date(), forKey: self.lastCheckKey)
-
             let latest = release.tag_name.hasPrefix("v")
                 ? String(release.tag_name.dropFirst()) : release.tag_name
             let page = URL(string: release.html_url) ?? self.releasesPage
