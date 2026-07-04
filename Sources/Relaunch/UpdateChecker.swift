@@ -53,10 +53,11 @@ final class UpdateChecker {
             guard let data, status == 200,
                   let release = try? JSONDecoder().decode(Release.self, from: data) else {
                 if userInitiated {
-                    // The server answering with e.g. 404 means the network is
-                    // fine — there is just no published release to compare to.
+                    // 404 means the network is fine — there is just no
+                    // published release to compare to. Anything else (rate
+                    // limit, 5xx, transport error) is a failed check.
                     DispatchQueue.main.async {
-                        if status != nil, error == nil {
+                        if status == 404 {
                             self.showNoRelease()
                         } else {
                             self.showCheckFailed()
