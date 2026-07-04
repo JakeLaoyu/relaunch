@@ -10,6 +10,7 @@ struct LaunchpadView: View {
     let onOpenSettings: () -> Void
 
     @FocusState private var searchFocused: Bool
+    @Environment(\.colorScheme) private var colorScheme
 
     // Drag state
     @State private var dragID: String?          // item being dragged
@@ -38,7 +39,7 @@ struct LaunchpadView: View {
     /// target (launches the app), versus empty space (closes Relaunch).
     private func hoverHighlight(_ hovering: Bool) -> some View {
         RoundedRectangle(cornerRadius: 18)
-            .fill(.white.opacity(hovering ? 0.14 : 0))
+            .fill(Color.primary.opacity(hovering ? (colorScheme == .dark ? 0.14 : 0.09) : 0))
             .padding(4)
     }
 
@@ -69,7 +70,7 @@ struct LaunchpadView: View {
 
     var body: some View {
         ZStack {
-            Color.black.opacity(0.28)
+            (colorScheme == .dark ? Color.black.opacity(0.28) : Color.white.opacity(0.22))
                 .ignoresSafeArea()
                 .contentShape(Rectangle())
                 .onTapGesture { if dragID == nil { onClose() } }
@@ -97,7 +98,6 @@ struct LaunchpadView: View {
             }
         }
         .background(VisualEffectView().ignoresSafeArea())
-        .environment(\.colorScheme, .dark)
         .onAppear { searchFocused = true }
         .onChange(of: model.query) {
             // Typing swaps the grid for search results, tearing the drag
@@ -135,11 +135,11 @@ struct LaunchpadView: View {
     private var searchBar: some View {
         ZStack {
             HStack(spacing: 8) {
-                Image(systemName: "magnifyingglass").foregroundStyle(.white.opacity(0.7))
+                Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
                 TextField("Search", text: $model.query)
                     .textFieldStyle(.plain)
                     .font(.title3)
-                    .foregroundStyle(.white)
+                    .foregroundStyle(.primary)
                     .focused($searchFocused)
             }
             .padding(.horizontal, 16)
@@ -152,7 +152,7 @@ struct LaunchpadView: View {
             Button(action: onOpenSettings) {
                 Image(systemName: "ellipsis.circle")
                     .font(.title2)
-                    .foregroundStyle(.white.opacity(0.85))
+                    .foregroundStyle(.primary.opacity(0.85))
                     .frame(width: 44, height: 44)
                     .background(.ultraThinMaterial, in: Circle())
             }
@@ -510,7 +510,8 @@ struct LaunchpadView: View {
             // Preview icons fill from the top-left like classic Launchpad,
             // not vertically centered.
             ZStack(alignment: .top) {
-                RoundedRectangle(cornerRadius: 16).fill(.white.opacity(0.18))
+                RoundedRectangle(cornerRadius: 16)
+                    .fill(Color.primary.opacity(colorScheme == .dark ? 0.18 : 0.12))
                 LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 4), count: 3),
                           spacing: 4) {
                     ForEach(model.previewIcons(folder)) { app in
@@ -530,10 +531,11 @@ struct LaunchpadView: View {
     private func label(_ text: String) -> some View {
         Text(text)
             .font(.system(size: 12))
-            .foregroundStyle(.white)
+            .foregroundStyle(.primary)
             .lineLimit(1)
             .truncationMode(.tail)
-            .shadow(radius: 2)
+            // White-on-wallpaper needs the shadow; black text in light mode doesn't.
+            .shadow(color: colorScheme == .dark ? .black.opacity(0.33) : .clear, radius: 2)
     }
 
     // MARK: - Pages / dots
@@ -549,7 +551,7 @@ struct LaunchpadView: View {
         HStack(spacing: 9) {
             ForEach(0..<Swift.max(count, 1), id: \.self) { i in
                 Circle()
-                    .fill(.white.opacity(i == model.currentPage ? 0.9 : 0.32))
+                    .fill(Color.primary.opacity(i == model.currentPage ? 0.9 : 0.32))
                     .frame(width: 7, height: 7)
                     .onTapGesture { withAnimation(.easeInOut) { model.setPage(i) } }
             }
@@ -562,7 +564,8 @@ struct LaunchpadView: View {
     }
 }
 
-/// Dark blurred desktop background (`NSVisualEffectView` bridged to SwiftUI).
+/// Blurred desktop background (`NSVisualEffectView` bridged to SwiftUI);
+/// follows the window's system light/dark appearance.
 private struct VisualEffectView: NSViewRepresentable {
     func makeNSView(context: Context) -> NSVisualEffectView {
         let view = NSVisualEffectView()
@@ -588,6 +591,7 @@ private struct FolderOverlay: View {
 
     @State private var name: String = ""
     @FocusState private var nameFocused: Bool
+    @Environment(\.colorScheme) private var colorScheme
 
     @State private var dragPath: String?
     @State private var dragPoint: CGPoint = .zero
@@ -610,7 +614,7 @@ private struct FolderOverlay: View {
         ZStack {
             // Kept mounted (faded out) during a drag-out so the active drag
             // gesture — which dies with its view — survives until the drop.
-            Color.black.opacity(draggedOut ? 0 : 0.45)
+            Color.black.opacity(draggedOut ? 0 : (colorScheme == .dark ? 0.45 : 0.25))
                 .ignoresSafeArea()
                 .contentShape(Rectangle())
                 .onTapGesture { if dragPath == nil { model.openFolderID = nil } }
@@ -621,7 +625,7 @@ private struct FolderOverlay: View {
                         .textFieldStyle(.plain)
                         .font(.title2.weight(.semibold))
                         .multilineTextAlignment(.center)
-                        .foregroundStyle(.white)
+                        .foregroundStyle(.primary)
                         .focused($nameFocused)
                         .frame(maxWidth: 320)
                         .onSubmit { commitName() }
@@ -662,7 +666,6 @@ private struct FolderOverlay: View {
             if rootOrigin != o { DispatchQueue.main.async { rootOrigin = o } }
             return Color.clear
         })
-        .environment(\.colorScheme, .dark)
     }
 
     private func toGlobal(_ p: CGPoint) -> CGPoint {
@@ -684,7 +687,7 @@ private struct FolderOverlay: View {
                     folderIcon(app, path: path)
                         .frame(width: 98, height: 98)
                         .background(RoundedRectangle(cornerRadius: 18)
-                            .fill(.white.opacity(hovering ? 0.14 : 0)).padding(4))
+                            .fill(Color.primary.opacity(hovering ? (colorScheme == .dark ? 0.14 : 0.09) : 0)).padding(4))
                         .scaleEffect(hovering ? 1.06 : 1)
                         .onHover { if $0 { hoverHL = path } else if hoverHL == path { hoverHL = nil } }
                         .frame(width: cellW, height: cellH)
@@ -708,7 +711,7 @@ private struct FolderOverlay: View {
         VStack(spacing: 7) {
             Image(nsImage: app.icon).resizable().interpolation(.high)
                 .frame(width: 70, height: 70)
-            Text(app.name).font(.system(size: 12)).foregroundStyle(.white)
+            Text(app.name).font(.system(size: 12)).foregroundStyle(.primary)
                 .lineLimit(1).truncationMode(.tail)
         }
         .contextMenu {
