@@ -22,14 +22,28 @@ private let kPosYOffset = 36
 private typealias MTContactCallback =
     @convention(c) (Int32, UnsafeMutableRawPointer?, Int32, Double, Int32) -> Int32
 
+/// Per-device tracking between frames. Spread values are only comparable while
+/// the same fingers stay down and the hand stays put, so the baseline is
+/// re-anchored whenever the contact count changes (a finger landing or lifting
+/// shifts the mean spread abruptly) or the centroid translates (a swipe moves
+/// the whole hand; a pinch converges in place).
+private struct TrackState {
+    var count: Int
+    var maxSpread: Float
+    var minSpread: Float
+    var anchorX: Float
+    var anchorY: Float
+}
+
 /// Shared mutable state for the C callback (which cannot capture context).
 /// Callbacks arrive on a thread per device, so access goes through the lock,
 /// and pinch tracking is kept per device — otherwise idle frames from a second
 /// trackpad would reset the active one's tracking mid-pinch.
 private final class GestureState {
     let lock = NSLock()
-    var onTrigger: (() -> Void)?
-    var startSpread: [Int32: Float] = [:]   // device → widest spread this contact
+    var onPinch: (() -> Void)?
+    var onSpread: (() -> Void)?
+    var track: [Int32: TrackState] = [:]
     var lastFire: Double = 0
 }
 private let state = GestureState()
@@ -70,7 +84,7 @@ private func contactFrameCallback(_ device: Int32,
     // trackpads often report only 3 (a finger merges or the thumb reads weak).
     guard count >= 3, count <= 5 else {
         state.lock.lock()
-        state.startSpread[device] = nil
+        state.track[device] = nil
         state.lock.unlock()
         return 0
     }
@@ -85,30 +99,50 @@ private func contactFrameCallback(_ device: Int32,
     spread /= Float(count)
 
     state.lock.lock()
-    guard var start = state.startSpread[device] else {
-        state.startSpread[device] = spread
+    // Re-anchor whenever the finger set or hand position stops matching the
+    // baseline. Both are swipe signatures, not pinch/spread ones:
+    //  - count change: a finger landing or lifting (staggered touchdown, or a
+    //    lift at the end of a swipe) shifts the mean spread of the remaining
+    //    contacts in one frame, which used to read as a "pinch".
+    //  - centroid translation: a swipe moves the whole hand across the pad
+    //    (centroid travels 0.2+), while a real pinch/spread converges or
+    //    expands around a nearly fixed centroid (drift well under 0.1).
+    let dxA = cx - (state.track[device]?.anchorX ?? cx)
+    let dyA = cy - (state.track[device]?.anchorY ?? cy)
+    let travel = (dxA * dxA + dyA * dyA).squareRoot()
+    guard var t = state.track[device], t.count == count, travel < 0.10 else {
+        state.track[device] = TrackState(count: count, maxSpread: spread,
+                                         minSpread: spread, anchorX: cx, anchorY: cy)
         state.lock.unlock()
         return 0
     }
-    // Keep the baseline at the widest spread seen so an outward move re-arms it.
-    if spread > start { start = spread; state.startSpread[device] = start }
+    // Baselines ride the extremes so a move in one direction re-arms the other.
+    if spread > t.maxSpread { t.maxSpread = spread }
+    if spread < t.minSpread { t.minSpread = spread }
+    state.track[device] = t
 
-    // Fire mid-pinch. Tuned to real trackpad data: a thumb + three-finger
+    // Fire mid-gesture. Tuned to real trackpad data: a thumb + three-finger
     // pinch starts near spread ~0.27–0.32 and only reaches ~71–75% of its
     // start before a finger lifts (the deepest logged pinch: 0.268 → 0.191),
-    // so require a clear absolute drop plus a modest ratio. A four-finger
-    // *swipe* translates without converging (observed drop < 0.005), so it
-    // stays far from these conditions.
-    let drop = start - spread
+    // so require a clear absolute change plus a modest ratio. The spread-out
+    // gesture mirrors the pinch with the same thresholds.
+    let drop = t.maxSpread - spread
+    let rise = spread - t.minSpread
     var trigger: (() -> Void)?
-    if start > 0.16, drop > 0.055, spread < start * 0.8, timestamp - state.lastFire > 1.0 {
-        state.lastFire = timestamp
-        state.startSpread[device] = nil
-        trigger = state.onTrigger
+    if timestamp - state.lastFire > 1.0 {
+        if t.maxSpread > 0.16, drop > 0.055, spread < t.maxSpread * 0.8 {
+            trigger = state.onPinch
+        } else if spread > 0.16, rise > 0.055, t.minSpread < spread * 0.8 {
+            trigger = state.onSpread
+        }
+        if trigger != nil {
+            state.lastFire = timestamp
+            state.track[device] = nil
+        }
     }
     state.lock.unlock()
 
-    mtlog("  n=\(count) start=\(start) spread=\(spread) drop=\(drop)")
+    mtlog("  n=\(count) max=\(t.maxSpread) min=\(t.minSpread) spread=\(spread) travel=\(travel)")
     if let trigger {
         mtlog("FIRE")
         DispatchQueue.main.async { trigger() }
@@ -129,9 +163,10 @@ final class MultitouchGesture {
     private var refreshTimer: Timer?
     private var wakeObserver: NSObjectProtocol?
 
-    init(onTrigger: @escaping () -> Void) {
+    init(onPinch: @escaping () -> Void, onSpread: (() -> Void)? = nil) {
         state.lock.lock()
-        state.onTrigger = onTrigger
+        state.onPinch = onPinch
+        state.onSpread = onSpread
         state.lock.unlock()
     }
 
@@ -186,7 +221,7 @@ final class MultitouchGesture {
         devices.removeAll()
         deviceList = nil
         state.lock.lock()
-        state.startSpread.removeAll()
+        state.track.removeAll()
         state.lock.unlock()
         refreshTimer?.invalidate(); refreshTimer = nil
         if let wakeObserver {

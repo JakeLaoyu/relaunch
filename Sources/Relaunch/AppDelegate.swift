@@ -29,7 +29,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             defaults.set(false, forKey: hotkeyKey)
         }
 
-        gesture = MultitouchGesture { [weak self] in self?.launchpad.show() }
+        gesture = MultitouchGesture(
+            onPinch: { [weak self] in self?.launchpad.show() },
+            onSpread: { [weak self] in self?.launchpad.close() }
+        )
         if defaults.bool(forKey: gestureKey) { gesture.start() }
 
         let actions = SettingsActions(

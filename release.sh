@@ -14,8 +14,10 @@
 #     --apple-id <your-apple-id> --team-id K285ZWD2P5 \
 #     --password <app-specific password from appleid.apple.com>
 #
-# Overrides: CODESIGN_IDENTITY (defaults to the first "Developer ID Application"
-# identity in the keychain), NOTARY_PROFILE (defaults to "relaunch-notary").
+# Overrides: CODESIGN_IDENTITY (defaults to the newest "Developer ID Application"
+# certificate of TEAM_ID in the keychain, selected by SHA-1 hash so duplicate
+# names — e.g. an old and a renewed cert — stay unambiguous), TEAM_ID (defaults
+# to K285ZWD2P5), NOTARY_PROFILE (defaults to "relaunch-notary").
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")" && pwd)"
@@ -23,6 +25,7 @@ PLIST="$ROOT/Resources/Info.plist"
 APP="$ROOT/build/Relaunch.app"
 DIST="$ROOT/build/dist"
 NOTARY_PROFILE="${NOTARY_PROFILE:-relaunch-notary}"
+TEAM_ID="${TEAM_ID:-K285ZWD2P5}"
 PB=/usr/libexec/PlistBuddy
 
 # ---------- Pre-flight ----------
@@ -71,11 +74,26 @@ if [ -n "$(git -C "$ROOT" status --porcelain)" ]; then
 fi
 
 SIGN_ID="${CODESIGN_IDENTITY:-}"
+SIGN_NAME="$SIGN_ID"
 if [ -z "$SIGN_ID" ]; then
-    SIGN_ID="$(security find-identity -v -p codesigning | sed -n 's/.*"\(Developer ID Application: [^"]*\)".*/\1/p' | head -1)"
+    # Sign by certificate SHA-1 hash, not by name: a renewed cert keeps the
+    # same name as the old one, and codesign rejects an ambiguous name.
+    # Only certs of the release team qualify; among those, prefer the most
+    # recently issued.
+    newest_epoch=-1
+    while read -r hash name; do
+        start="$(security find-certificate -a -c "Developer ID Application" -Z -p \
+            | awk -v h="$hash" '/^SHA-1/{keep=($3==h)} keep' \
+            | openssl x509 -noout -startdate 2>/dev/null | cut -d= -f2)"
+        epoch="$(date -j -f '%b %e %T %Y' "${start% GMT}" +%s 2>/dev/null || echo 0)"
+        if [ "$epoch" -gt "$newest_epoch" ]; then
+            newest_epoch=$epoch; SIGN_ID="$hash"; SIGN_NAME="$name"
+        fi
+    done < <(security find-identity -v -p codesigning \
+        | sed -n 's/^ *[0-9]*) \([0-9A-F]\{40\}\) "\(Developer ID Application: .*('"$TEAM_ID"')\)"$/\1 \2/p')
 fi
 if [ -z "$SIGN_ID" ]; then
-    echo "ERROR: no 'Developer ID Application' identity in the keychain. Set CODESIGN_IDENTITY." >&2
+    echo "ERROR: no 'Developer ID Application' identity for team $TEAM_ID in the keychain. Set CODESIGN_IDENTITY." >&2
     exit 1
 fi
 
@@ -85,7 +103,7 @@ ERROR: no notarization credentials under keychain profile "$NOTARY_PROFILE".
 One-time setup (needs an app-specific password from https://account.apple.com):
 
   xcrun notarytool store-credentials $NOTARY_PROFILE \\
-    --apple-id <your-apple-id> --team-id K285ZWD2P5 --password <app-specific-password>
+    --apple-id <your-apple-id> --team-id $TEAM_ID --password <app-specific-password>
 EOF
     exit 1
 fi
@@ -137,7 +155,7 @@ case $rc in
 esac
 
 BUILD_NUM="$(( $($PB -c 'Print :CFBundleVersion' "$PLIST") + 1 ))"
-echo "==> Releasing v$VERSION (build $BUILD_NUM), signing as: $SIGN_ID"
+echo "==> Releasing v$VERSION (build $BUILD_NUM), signing as: $SIGN_NAME ($SIGN_ID)"
 
 # If anything fails before the release commit, restore the plist so the
 # pre-flight clean-tree check doesn't block the next attempt.
