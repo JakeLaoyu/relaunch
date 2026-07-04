@@ -168,16 +168,21 @@ final class LaunchpadController: NSObject, NSWindowDelegate {
     /// an option: it hides the Dock along with the menu bar.)
     private static func menuBarRect(of screen: NSScreen) -> NSRect {
         let f = screen.frame
-        let h = f.maxY - screen.visibleFrame.maxY   // the Dock is never at the top
+        var h = f.maxY - screen.visibleFrame.maxY   // the Dock is never at the top
+        if h <= 0 {
+            // Menu bar set to auto-hide: visibleFrame reports no top inset,
+            // but hovering the top edge would still slide the system menu bar
+            // in *above* the overlay — keep a strip tall enough to cover it.
+            // (NSMenu().menuBarHeight is 0 for a menu that isn't the main
+            // menu bar, so it can't be the fallback; +2 covers the tallest
+            // observed bar, e.g. 33pt vs a 32pt notch safe-area.)
+            h = max(screen.safeAreaInsets.top, NSStatusBar.system.thickness) + 2
+        }
         return NSRect(x: f.minX, y: f.maxY - h, width: f.width, height: h)
     }
 
     private func showMenuBarCover(on screen: NSScreen) {
         let rect = Self.menuBarRect(of: screen)
-        guard rect.height > 0 else {                // menu bar set to auto-hide
-            menuBarCover?.orderOut(nil)
-            return
-        }
         if menuBarCover == nil { buildMenuBarCover() }
         guard let cover = menuBarCover else { return }
         cover.setFrame(rect, display: true)
