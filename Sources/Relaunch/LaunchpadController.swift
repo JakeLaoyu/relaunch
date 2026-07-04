@@ -7,9 +7,17 @@ final class LaunchpadWindow: NSWindow {
     override var canBecomeMain: Bool { true }
 }
 
+/// Content of the menu-bar cover; clicking it closes the overlay, matching a
+/// click on any other empty part of the background.
+private final class MenuBarCoverView: NSView {
+    var onClick: (() -> Void)?
+    override func mouseDown(with event: NSEvent) { onClick?() }
+}
+
 /// Owns the full-screen overlay window and its show/hide lifecycle.
 final class LaunchpadController: NSObject, NSWindowDelegate {
     private var window: LaunchpadWindow?
+    private var menuBarCover: NSWindow?
     private let model = LaunchpadModel()
 
     // Trackpad swipe accumulator for page flips.
@@ -43,17 +51,27 @@ final class LaunchpadController: NSObject, NSWindowDelegate {
         model.applyLayoutSettings()
         model.reload()
 
-        // Show on whichever screen the cursor is on.
+        // Show on whichever screen the cursor is on. The main window tiles
+        // with the menu-bar cover (it stops where the strip begins) instead of
+        // extending under it — the strip's blur must sample the wallpaper
+        // directly, not our already-blurred output, to come out the same shade.
         let mouse = NSEvent.mouseLocation
         let screen = NSScreen.screens.first { $0.frame.contains(mouse) } ?? NSScreen.main
-        if let frame = screen?.frame { window.setFrame(frame, display: true) }
+        if let screen {
+            var main = screen.frame
+            main.size.height -= Self.menuBarRect(of: screen).height
+            window.setFrame(main, display: true)
+            model.dockInsets = Self.dockInsets(of: screen)
+        }
 
         window.alphaValue = 0
+        if let screen { showMenuBarCover(on: screen) }
         NSApp.activate(ignoringOtherApps: true)
         window.makeKeyAndOrderFront(nil)
         NSAnimationContext.runAnimationGroup { ctx in
             ctx.duration = 0.18
             window.animator().alphaValue = 1
+            menuBarCover?.animator().alphaValue = 1
         }
     }
 
@@ -64,9 +82,13 @@ final class LaunchpadController: NSObject, NSWindowDelegate {
         NSAnimationContext.runAnimationGroup({ ctx in
             ctx.duration = 0.14
             window.animator().alphaValue = 0
+            menuBarCover?.animator().alphaValue = 0
         }, completionHandler: { [weak self] in
             // Skip if a show() re-opened the window during the fade.
-            if self?.showGeneration == gen { window.orderOut(nil) }
+            if self?.showGeneration == gen {
+                window.orderOut(nil)
+                self?.menuBarCover?.orderOut(nil)
+            }
         })
     }
 
@@ -76,7 +98,10 @@ final class LaunchpadController: NSObject, NSWindowDelegate {
         let frame = NSScreen.main?.frame ?? NSRect(x: 0, y: 0, width: 1440, height: 900)
         let w = LaunchpadWindow(contentRect: frame, styleMask: .borderless,
                                 backing: .buffered, defer: false)
-        w.level = NSWindow.Level(rawValue: Int(CGShieldingWindowLevel()))
+        // One level below the Dock: the overlay covers every normal window but
+        // the Dock stays visible and clickable on top of it, like classic
+        // Launchpad (clicking a Dock app resigns key and dismisses us).
+        w.level = NSWindow.Level(rawValue: Int(CGWindowLevelForKey(.dockWindow)) - 1)
         w.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary, .ignoresCycle]
         w.isOpaque = false
         w.backgroundColor = .clear
@@ -109,8 +134,86 @@ final class LaunchpadController: NSObject, NSWindowDelegate {
             guard let self, let window = self.window, window.isVisible else { return }
             let mouse = NSEvent.mouseLocation
             let screen = NSScreen.screens.first { $0.frame.contains(mouse) } ?? NSScreen.main
-            if let frame = screen?.frame { window.setFrame(frame, display: true) }
+            if let screen {
+                var main = screen.frame
+                main.size.height -= Self.menuBarRect(of: screen).height
+                window.setFrame(main, display: true)
+                self.model.dockInsets = Self.dockInsets(of: screen)
+                if let cover = self.menuBarCover, cover.isVisible {
+                    cover.setFrame(Self.menuBarRect(of: screen), display: true)
+                }
+            }
         }
+    }
+
+    /// Edges of `screen` the Dock occupies (`visibleFrame` excludes it). The
+    /// top is ignored — the menu bar is covered by `menuBarCover` while the
+    /// overlay is up. With Dock auto-hide on, `visibleFrame` reaches the
+    /// screen edge and the insets come out zero, which is what we want.
+    private static func dockInsets(of screen: NSScreen) -> EdgeInsets {
+        let f = screen.frame, v = screen.visibleFrame
+        return EdgeInsets(top: 0,
+                          leading: max(0, v.minX - f.minX),
+                          bottom: max(0, v.minY - f.minY),
+                          trailing: max(0, f.maxX - v.maxX))
+    }
+
+    // MARK: - Menu bar cover
+
+    /// The overlay must stay *below* the Dock's window level, but the menu bar
+    /// sits *above* the Dock — one window can't cover the menu bar without
+    /// also covering the Dock. So the menu bar strip gets its own little
+    /// higher-level window with the same blur, like classic Launchpad's
+    /// all-blur, no-menu-bar look. (`NSMenu.setMenuBarVisible(false)` is not
+    /// an option: it hides the Dock along with the menu bar.)
+    private static func menuBarRect(of screen: NSScreen) -> NSRect {
+        let f = screen.frame
+        let h = f.maxY - screen.visibleFrame.maxY   // the Dock is never at the top
+        return NSRect(x: f.minX, y: f.maxY - h, width: f.width, height: h)
+    }
+
+    private func showMenuBarCover(on screen: NSScreen) {
+        let rect = Self.menuBarRect(of: screen)
+        guard rect.height > 0 else {                // menu bar set to auto-hide
+            menuBarCover?.orderOut(nil)
+            return
+        }
+        if menuBarCover == nil { buildMenuBarCover() }
+        guard let cover = menuBarCover else { return }
+        cover.setFrame(rect, display: true)
+        cover.alphaValue = 0
+        cover.orderFront(nil)
+    }
+
+    private func buildMenuBarCover() {
+        let cover = NSWindow(contentRect: .zero, styleMask: .borderless,
+                             backing: .buffered, defer: false)
+        cover.level = NSWindow.Level(rawValue: Int(CGWindowLevelForKey(.statusWindow)) + 1)
+        cover.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary, .ignoresCycle]
+        cover.isOpaque = false
+        cover.backgroundColor = .clear
+        cover.hasShadow = false
+        cover.appearance = NSAppearance(named: .darkAqua)
+
+        // Same stack as the overlay background (hud blur + dark tint) so the
+        // strip blends seamlessly into the page below it.
+        let root = MenuBarCoverView()
+        root.onClick = { [weak self] in self?.close() }
+        let blur = NSVisualEffectView()
+        blur.material = .hudWindow
+        blur.blendingMode = .behindWindow
+        blur.state = .active
+        blur.frame = root.bounds
+        blur.autoresizingMask = [.width, .height]
+        root.addSubview(blur)
+        let tint = NSView()
+        tint.wantsLayer = true
+        tint.layer?.backgroundColor = NSColor.black.withAlphaComponent(0.28).cgColor
+        tint.frame = root.bounds
+        tint.autoresizingMask = [.width, .height]
+        root.addSubview(tint)
+        cover.contentView = root
+        menuBarCover = cover
     }
 
     private func setupScrollMonitor() {

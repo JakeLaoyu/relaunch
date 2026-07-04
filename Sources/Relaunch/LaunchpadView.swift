@@ -85,6 +85,7 @@ struct LaunchpadView: View {
             }
             .padding(.vertical, 54)
             .padding(.horizontal, 90)
+            .padding(model.dockInsets)   // keep clear of the visible Dock
 
             if let id = model.openFolderID {
                 FolderOverlay(model: model, folderID: id, onLaunch: { onLaunch($0) },
