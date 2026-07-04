@@ -42,3 +42,17 @@
 "Could not save the layout" = "No se pudo guardar el diseño";
 "Your icon layout could not be written to disk. Check the available disk space." = "El diseño de iconos no se pudo escribir en el disco. Comprueba el espacio disponible.";
 "Could not open “%@”" = "No se pudo abrir “%@”";
+
+/* Updates */
+"Updates" = "Actualizaciones";
+"Automatically check for updates" = "Buscar actualizaciones automáticamente";
+"Check for Updates…" = "Buscar actualizaciones…";
+"A new version of Relaunch is available" = "Hay una nueva versión de Relaunch disponible";
+"Relaunch %@ is available — you have %@." = "Relaunch %@ está disponible; tienes %@.";
+"Download" = "Descargar";
+"Later" = "Más tarde";
+"You're up to date" = "Estás al día";
+"Relaunch %@ is the latest version." = "Relaunch %@ es la versión más reciente.";
+"Could not check for updates" = "No se pudo buscar actualizaciones";
+"Check your network connection and try again." = "Comprueba tu conexión de red e inténtalo de nuevo.";
+"No published releases were found." = "No se encontraron versiones publicadas.";

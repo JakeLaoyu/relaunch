@@ -14,10 +14,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let hotkeyKey = "hotkeyEnabled"
     private let dockKey = "showDock"
     private let menuBarKey = "showMenuBar"
+    private let autoUpdateKey = "autoCheckUpdates"
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         // First-run defaults.
-        for key in [gestureKey, hotkeyKey, dockKey, menuBarKey] where defaults.object(forKey: key) == nil {
+        for key in [gestureKey, hotkeyKey, dockKey, menuBarKey, autoUpdateKey] where defaults.object(forKey: key) == nil {
             defaults.set(true, forKey: key)
         }
 
@@ -40,12 +41,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             isLogin: { LoginItem.isEnabled },
             importLegacy: { [weak self] in self?.launchpad.importFromLegacy() ?? -1 },
             reloadLayout: { [weak self] in self?.launchpad.applyLayoutSettings() },
-            relaunchApp: { Self.relaunch() }
+            relaunchApp: { Self.relaunch() },
+            checkUpdates: { UpdateChecker.shared.checkManually() }
         )
         settingsWindow = SettingsWindowController(actions: actions)
         launchpad.onOpenSettings = { [weak self] in self?.openSettings() }
 
         if defaults.bool(forKey: menuBarKey) { showStatusItem() }
+
+        // Give startup a moment before hitting the network.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
+            UpdateChecker.shared.checkAutomatically()
+        }
     }
 
     /// Clicking the Dock icon opens the Launchpad.
@@ -78,7 +85,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         statusBar = StatusBarController(
             onOpen: { [weak self] in self?.launchpad.show() },
             onSettings: { [weak self] in self?.openSettings() },
-            importLegacy: { [weak self] in self?.launchpad.importFromLegacy() ?? -1 }
+            importLegacy: { [weak self] in self?.launchpad.importFromLegacy() ?? -1 },
+            checkUpdates: { UpdateChecker.shared.checkManually() }
         )
     }
 
