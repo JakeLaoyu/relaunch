@@ -139,10 +139,17 @@ apps auto-dissolve.
 
 ## Localization
 
-UI strings live in `Resources/<locale>.lproj/Localizable.strings` (English is
-the fallback). To add a language, copy `Resources/en.lproj/Localizable.strings`
-to a new `<locale>.lproj` folder, translate the values, and add the locale to
-`CFBundleLocalizations` in `Resources/Info.plist`.
+UI strings live in `Resources/<locale>.lproj/Localizable.strings`. English is
+the development language: the keys *are* the English strings, so
+`en.lproj/Localizable.strings` contains no entries — it only registers the
+localization. To add a language:
+
+1. Copy a populated translation, e.g. `Resources/fr.lproj/Localizable.strings`,
+   to a new `<locale>.lproj` folder and translate the values (keep the keys —
+   they are the English source strings).
+2. Add the locale to `CFBundleLocalizations` in `Resources/Info.plist`.
+3. Add it to the `languages` list at the top of
+   `Sources/Relaunch/SettingsView.swift` so it appears in the in-app picker.
 
 ## Conventions
 

@@ -92,7 +92,7 @@ CODESIGN_IDENTITY="Developer ID Application: … (TEAMID)" ./build.sh
 
 ## 参与贡献
 
-欢迎提 Issue 和 PR——bug 反馈、功能建议,尤其欢迎新语言翻译。添加语言:把 `Resources/en.lproj/Localizable.strings` 复制为新的 `<locale>.lproj` 目录并翻译其中的值即可。
+欢迎提 Issue 和 PR——bug 反馈、功能建议,尤其欢迎新语言翻译。添加语言:复制一份已有翻译(如 `Resources/fr.lproj/Localizable.strings`)为新的 `<locale>.lproj` 目录并翻译其中的值即可(键就是英文原文,保持不变)。
 
 构建/测试流程、架构说明和子系统注意事项见 [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)(英文)。
 

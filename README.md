@@ -108,7 +108,7 @@ The pinch gesture relies on `MultitouchSupport.framework`, which is private API.
 
 ## Contributing
 
-Issues and pull requests are welcome — bug reports, feature ideas, and new localizations especially. To add a language, copy `Resources/en.lproj/Localizable.strings` to a new `<locale>.lproj` folder and translate the values.
+Issues and pull requests are welcome — bug reports, feature ideas, and new localizations especially. To add a language, copy a populated translation such as `Resources/fr.lproj/Localizable.strings` to a new `<locale>.lproj` folder and translate the values (the keys are the English source strings).
 
 See [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) for the build/test loop, architecture map, and subsystem gotchas.
 
