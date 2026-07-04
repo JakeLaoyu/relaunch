@@ -11,6 +11,7 @@ struct SettingsActions {
     let importLegacy: () -> Int
     let reloadLayout: () -> Void
     let relaunchApp: () -> Void
+    let checkUpdates: () -> Void
 }
 
 struct SettingsView: View {
@@ -31,6 +32,7 @@ struct SettingsView: View {
     @AppStorage("rows") private var rows = 5
     @AppStorage("swipeReversed") private var swipeReversed = false
     @AppStorage("appLanguage") private var appLanguage = "system"
+    @AppStorage("autoCheckUpdates") private var autoCheckUpdates = true
     @State private var launchAtLogin = false
     @State private var importResult: String?
 
@@ -99,9 +101,14 @@ struct SettingsView: View {
                 }
             }
 
+            Section("Updates") {
+                Toggle("Automatically check for updates", isOn: $autoCheckUpdates)
+                Button("Check for Updates…") { actions.checkUpdates() }
+            }
+
             Section {
                 Button("Restore Defaults", role: .destructive) { restoreDefaults() }
-                LabeledContent("Relaunch", value: "1.0")
+                LabeledContent("Relaunch", value: UpdateChecker.currentVersion)
             }
         }
         .formStyle(.grouped)
@@ -118,6 +125,7 @@ struct SettingsView: View {
         columns = 7
         rows = 5
         swipeReversed = false
+        autoCheckUpdates = true
         // Re-apply (covers values that were already at default, where the
         // @AppStorage onChange wouldn't fire).
         actions.setDock(true)

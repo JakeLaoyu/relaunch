@@ -42,3 +42,17 @@
 "Could not save the layout" = "レイアウトを保存できませんでした";
 "Your icon layout could not be written to disk. Check the available disk space." = "アイコンレイアウトをディスクに書き込めませんでした。空き容量を確認してください。";
 "Could not open “%@”" = "“%@”を開けませんでした";
+
+/* Updates */
+"Updates" = "アップデート";
+"Automatically check for updates" = "自動的にアップデートを確認";
+"Check for Updates…" = "アップデートを確認…";
+"A new version of Relaunch is available" = "Relaunch の新しいバージョンがあります";
+"Relaunch %@ is available — you have %@." = "Relaunch %@ が利用可能です（現在のバージョン: %@）。";
+"Download" = "ダウンロード";
+"Later" = "あとで";
+"You're up to date" = "最新の状態です";
+"Relaunch %@ is the latest version." = "Relaunch %@ は最新バージョンです。";
+"Could not check for updates" = "アップデートを確認できませんでした";
+"Check your network connection and try again." = "ネットワーク接続を確認してからやり直してください。";
+"No published releases were found." = "公開されたリリースが見つかりませんでした。";

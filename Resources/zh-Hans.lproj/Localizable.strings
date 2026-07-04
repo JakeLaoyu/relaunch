@@ -46,3 +46,17 @@
 "Could not save the layout" = "无法保存布局";
 "Your icon layout could not be written to disk. Check the available disk space." = "图标布局无法写入磁盘，请检查可用磁盘空间。";
 "Could not open “%@”" = "无法打开“%@”";
+
+/* Updates */
+"Updates" = "更新";
+"Automatically check for updates" = "自动检查更新";
+"Check for Updates…" = "检查更新…";
+"A new version of Relaunch is available" = "Relaunch 有新版本可用";
+"Relaunch %@ is available — you have %@." = "新版本 %@ 已发布，当前版本为 %@。";
+"Download" = "下载";
+"Later" = "稍后";
+"You're up to date" = "已是最新版本";
+"Relaunch %@ is the latest version." = "Relaunch %@ 已是最新版本。";
+"Could not check for updates" = "无法检查更新";
+"No published releases were found." = "未找到已发布的版本。";
+"Check your network connection and try again." = "请检查网络连接后重试。";

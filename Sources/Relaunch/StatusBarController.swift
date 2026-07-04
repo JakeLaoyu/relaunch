@@ -8,13 +8,16 @@ final class StatusBarController: NSObject {
     private let onOpen: () -> Void
     private let onSettings: () -> Void
     private let importLegacy: () -> Int
+    private let checkUpdates: () -> Void
 
     init(onOpen: @escaping () -> Void,
          onSettings: @escaping () -> Void,
-         importLegacy: @escaping () -> Int) {
+         importLegacy: @escaping () -> Int,
+         checkUpdates: @escaping () -> Void) {
         self.onOpen = onOpen
         self.onSettings = onSettings
         self.importLegacy = importLegacy
+        self.checkUpdates = checkUpdates
 
         item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         super.init()
@@ -50,6 +53,11 @@ final class StatusBarController: NSObject {
         importItem.target = self
         menu.addItem(importItem)
 
+        let update = NSMenuItem(title: NSLocalizedString("Check for Updates…", comment: ""),
+                                action: #selector(doCheckUpdates), keyEquivalent: "")
+        update.target = self
+        menu.addItem(update)
+
         menu.addItem(.separator())
 
         let quit = NSMenuItem(title: NSLocalizedString("Quit Relaunch", comment: ""),
@@ -62,6 +70,7 @@ final class StatusBarController: NSObject {
 
     @objc private func openLaunchpad() { onOpen() }
     @objc private func openSettings() { onSettings() }
+    @objc private func doCheckUpdates() { checkUpdates() }
     @objc private func quit() { NSApp.terminate(nil) }
     @objc private func doImport() {
         let count = importLegacy()
