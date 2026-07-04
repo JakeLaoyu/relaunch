@@ -38,6 +38,10 @@ final class LaunchpadModel: ObservableObject {
     @Published var rows = 5
     @Published var iconSize: CGFloat = 74
 
+    // Edges the Dock occupies on the current screen; the grid keeps clear of
+    // them so icons never sit under the (visible, clickable) Dock.
+    @Published var dockInsets = EdgeInsets()
+
     var pageSize: Int { Swift.max(1, columns * rows) }
     var pageCount: Int { Swift.max(1, (items.count + pageSize - 1) / pageSize) }
 
