@@ -15,6 +15,8 @@ A native, lightweight recreation of the full-screen Launchpad that macOS 26 (Tah
 
 [Download](https://github.com/JakeLaoyu/relaunch/releases/latest) · [Features](#features) · [Build from source](#build-from-source) · [How it works](#how-it-works) · [中文说明](README.zh-CN.md)
 
+<img src="docs/screenshot.png" alt="Relaunch full-screen Launchpad overlay" width="800">
+
 </div>
 
 ---
@@ -107,6 +109,8 @@ The pinch gesture relies on `MultitouchSupport.framework`, which is private API.
 ## Contributing
 
 Issues and pull requests are welcome — bug reports, feature ideas, and new localizations especially. To add a language, copy `Resources/en.lproj/Localizable.strings` to a new `<locale>.lproj` folder and translate the values.
+
+See [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) for the build/test loop, architecture map, and subsystem gotchas.
 
 ## License
 

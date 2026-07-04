@@ -15,6 +15,8 @@ macOS 26 (Tahoe) 移除了经典的全屏启动台,Relaunch 用原生方式还�
 
 [下载](https://github.com/JakeLaoyu/relaunch/releases/latest) · [功能](#功能) · [从源码构建](#从源码构建) · [English](README.md)
 
+<img src="docs/screenshot.png" alt="Relaunch 全屏启动台" width="800">
+
 </div>
 
 ---
@@ -91,6 +93,8 @@ CODESIGN_IDENTITY="Developer ID Application: … (TEAMID)" ./build.sh
 ## 参与贡献
 
 欢迎提 Issue 和 PR——bug 反馈、功能建议,尤其欢迎新语言翻译。添加语言:把 `Resources/en.lproj/Localizable.strings` 复制为新的 `<locale>.lproj` 目录并翻译其中的值即可。
+
+构建/测试流程、架构说明和子系统注意事项见 [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)(英文)。
 
 ## 许可证
 
