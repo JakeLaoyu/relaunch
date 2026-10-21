@@ -612,54 +612,69 @@ private struct FolderOverlay: View {
     private let cellH: CGFloat = 106
 
     var body: some View {
-        ZStack {
-            // Kept mounted (faded out) during a drag-out so the active drag
-            // gesture — which dies with its view — survives until the drop.
-            Color.black.opacity(draggedOut ? 0 : (colorScheme == .dark ? 0.45 : 0.25))
-                .ignoresSafeArea()
-                .contentShape(Rectangle())
-                .onTapGesture { if dragPath == nil { model.openFolderID = nil } }
+        GeometryReader { geometry in
+            ZStack {
+                // Kept mounted (faded out) during a drag-out so the active drag
+                // gesture — which dies with its view — survives until the drop.
+                Color.black.opacity(draggedOut ? 0 : (colorScheme == .dark ? 0.45 : 0.25))
+                    .ignoresSafeArea()
+                    .contentShape(Rectangle())
+                    .onTapGesture { if dragPath == nil { model.openFolderID = nil } }
 
-            if let folder = model.folder(folderID) {
-                VStack(spacing: 18) {
-                    TextField("Folder Name", text: $name)
-                        .textFieldStyle(.plain)
-                        .font(.title2.weight(.semibold))
-                        .multilineTextAlignment(.center)
-                        .foregroundStyle(.primary)
-                        .focused($nameFocused)
-                        .frame(maxWidth: 320)
-                        .onSubmit { commitName() }
-                        .onChange(of: nameFocused) { if !nameFocused { commitName() } }
+                if let folder = model.folder(folderID) {
+                    VStack(spacing: 18) {
+                        TextField("Folder Name", text: $name)
+                            .textFieldStyle(.plain)
+                            .font(.title2.weight(.semibold))
+                            .multilineTextAlignment(.center)
+                            .foregroundStyle(.primary)
+                            .focused($nameFocused)
+                            .frame(maxWidth: 320)
+                            .frame(height: 32)
+                            .onSubmit { commitName() }
+                            .onChange(of: nameFocused) { if !nameFocused { commitName() } }
 
-                    folderGrid(folder)
+                        // Keep the title and panel on screen, including above the
+                        // Dock. Small folders retain their natural grid height.
+                        ScrollView(.vertical) {
+                            folderGrid(folder)
+                        }
+                        .frame(width: CGFloat(columns) * cellW,
+                               height: min(gridHeight(folder), max(0,
+                                   // 48 outer margin + 68 padding + 32 title + 18 spacing.
+                                   geometry.size.height - model.dockInsets.top
+                                   - model.dockInsets.bottom - 166)))
+                        .id(folderID)
+                    }
+                    .padding(34)
+                    .frame(maxWidth: 760)
+                    .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 28))
+                    .background(GeometryReader { g -> Color in
+                        let f = g.frame(in: .named("folderRoot"))
+                        DispatchQueue.main.async { panelFrame = f }
+                        return Color.clear
+                    })
+                    .opacity(draggedOut ? 0 : 1)
+                    .scaleEffect(draggedOut ? 0.9 : 1)
+                    .offset(y: (model.dockInsets.top - model.dockInsets.bottom) / 2)
+                    .onAppear { name = folder.name }
+                    // Escape / tapping the dim background closes the overlay before
+                    // any focus change fires — commit the typed name on teardown.
+                    .onDisappear { commitName() }
                 }
-                .padding(34)
-                .frame(maxWidth: 760)
-                .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 28))
-                .background(GeometryReader { g -> Color in
-                    let f = g.frame(in: .named("folderRoot"))
-                    DispatchQueue.main.async { panelFrame = f }
-                    return Color.clear
-                })
-                .opacity(draggedOut ? 0 : 1)
-                .scaleEffect(draggedOut ? 0.9 : 1)
-                .onAppear { name = folder.name }
-                // Escape / tapping the dim background closes the overlay before
-                // any focus change fires — commit the typed name on teardown.
-                .onDisappear { commitName() }
-            }
 
-            // Floating dragged icon (page-sized once it has left the folder).
-            if let path = dragPath, let app = model.app(path) {
-                let side: CGFloat = draggedOut ? model.iconSize : 70
-                Image(nsImage: app.icon).resizable().interpolation(.high)
-                    .frame(width: side, height: side)
-                    .scaleEffect(1.12)
-                    .shadow(color: .black.opacity(0.35), radius: 10, y: 5)
-                    .position(dragPoint)
-                    .allowsHitTesting(false)
+                // Floating dragged icon (page-sized once it has left the folder).
+                if let path = dragPath, let app = model.app(path) {
+                    let side: CGFloat = draggedOut ? model.iconSize : 70
+                    Image(nsImage: app.icon).resizable().interpolation(.high)
+                        .frame(width: side, height: side)
+                        .scaleEffect(1.12)
+                        .shadow(color: .black.opacity(0.35), radius: 10, y: 5)
+                        .position(dragPoint)
+                        .allowsHitTesting(false)
+                }
             }
+            .frame(width: geometry.size.width, height: geometry.size.height)
         }
         .coordinateSpace(name: "folderRoot")
         .background(GeometryReader { g -> Color in
@@ -673,9 +688,12 @@ private struct FolderOverlay: View {
         CGPoint(x: p.x + rootOrigin.x, y: p.y + rootOrigin.y)
     }
 
+    private func gridHeight(_ folder: Folder) -> CGFloat {
+        CGFloat(max(1, (folder.appPaths.count + columns - 1) / columns)) * cellH
+    }
+
     private func folderGrid(_ folder: Folder) -> some View {
         let all = folder.appPaths
-        let rows = max(1, (all.count + columns - 1) / columns)
         let dragging = dragPath != nil
         let display = dragging ? all.filter { $0 != dragPath } : all
         let gap = dragging ? gapSlot : -1
@@ -698,14 +716,16 @@ private struct FolderOverlay: View {
                 }
             }
         }
-        .frame(width: CGFloat(columns) * cellW, height: CGFloat(rows) * cellH)
+        .frame(width: CGFloat(columns) * cellW, height: gridHeight(folder))
         .background(GeometryReader { g -> Color in
             let f = g.frame(in: .named("folderRoot"))
             DispatchQueue.main.async { gridFrame = f }
             return Color.clear
         })
         .contentShape(Rectangle())
-        .gesture(folderDrag(folder))
+        // Mouse drags reorder/drag out icons instead of panning the ScrollView.
+        // Trackpad and wheel scroll events still reach the scroll container.
+        .highPriorityGesture(folderDrag(folder))
     }
 
     private func folderIcon(_ app: AppInfo, path: String) -> some View {

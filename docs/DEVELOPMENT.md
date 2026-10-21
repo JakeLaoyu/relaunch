@@ -62,6 +62,23 @@ Build specifics that matter:
 - Visual behavior (drag/drop, folder overlay, layout) needs a human in front
   of the real app.
 
+### Folder scrolling regression check
+
+On a screen with limited vertical space, open a folder with enough apps to
+exceed the screen height (for example, 60 apps on a laptop display):
+
+1. Confirm the entire panel stays above the Dock, with its name visible.
+2. Scroll to the last row and back using a trackpad or mouse wheel. The name
+   should stay fixed and the page behind the folder should not change.
+3. Click an app after scrolling and confirm the visible app opens.
+4. Reorder apps after scrolling, then drag one outside the panel. Check that
+   the intended app moves and that the saved layout preserves the change.
+5. Close with Escape or a background click, reopen the folder, and check that
+   it starts at the top. Open a small folder and confirm it retains its natural
+   height without unnecessary scrolling.
+6. Repeat with the Dock visible at the bottom and on the side, and with a
+   shorter display/window height.
+
 ## Releasing
 
 `./release.sh` is the one-command release: pick the version (interactive
